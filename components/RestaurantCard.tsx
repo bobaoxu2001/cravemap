@@ -4,8 +4,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Restaurant } from '../types';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
-import TasteMatchBadge from './TasteMatchBadge';
-import TagChip from './TagChip';
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -22,6 +20,13 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
     <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.92}>
       <View style={styles.imageContainer}>
         <Image source={{ uri: restaurant.images[0] }} style={styles.image} />
+
+        {/* Taste match circular badge - top left */}
+        <View style={styles.matchBadge}>
+          <Text style={styles.matchBadgePercent}>{restaurant.tasteMatchPercent}%</Text>
+          <Text style={styles.matchBadgeLabel}>match</Text>
+        </View>
+
         <View style={styles.imageOverlay}>
           <View style={[styles.openBadge, { backgroundColor: restaurant.isOpen ? Colors.green : Colors.textMuted }]}>
             <Text style={styles.openText}>{restaurant.isOpen ? 'Open' : 'Closed'}</Text>
@@ -33,32 +38,31 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
             </View>
           )}
         </View>
+
+        {/* Cuisine band at bottom of image */}
+        <View style={styles.cuisineBand}>
+          <Text style={styles.cuisineText} numberOfLines={1}>{restaurant.cuisine}</Text>
+          {restaurant.tags[0] && (
+            <View style={styles.imageTagChip}>
+              <Text style={styles.imageTagText} numberOfLines={1}>{restaurant.tags[0]}</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
-        <Text style={styles.sub} numberOfLines={1}>{restaurant.neighborhood} · {restaurant.cuisine}</Text>
-        <Text style={styles.price}>{restaurant.price}</Text>
+        <Text style={styles.sub} numberOfLines={1}>{restaurant.neighborhood} · {restaurant.price}</Text>
 
-        <View style={styles.badgeRow}>
-          <TasteMatchBadge percent={restaurant.tasteMatchPercent} />
-          <View style={styles.localBadge}>
-            <Text style={styles.localText}>{restaurant.localApprovedPercent}% local</Text>
-          </View>
+        <View style={styles.trustRow}>
+          <Text style={styles.trustText} numberOfLines={1}>
+            🏘️ {restaurant.localApprovedPercent}% local · ✅ {restaurant.verifiedCheckIns.toLocaleString()} visits
+          </Text>
         </View>
 
-        <View style={styles.checkInsRow}>
-          <Ionicons name="checkmark-circle-outline" size={12} color={Colors.textMuted} />
-          <Text style={styles.checkInsText}>{restaurant.verifiedCheckIns.toLocaleString()} check-ins</Text>
+        <View style={styles.reasonPill}>
+          <Text style={styles.reason} numberOfLines={2}>💡 {restaurant.recommendationReason}</Text>
         </View>
-
-        <View style={styles.tagsRow}>
-          {restaurant.tags.slice(0, 2).map((tag) => (
-            <TagChip key={tag} label={tag} variant="neutral" size="sm" />
-          ))}
-        </View>
-
-        <Text style={styles.reason} numberOfLines={2}>{restaurant.recommendationReason}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -66,7 +70,7 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 220,
+    width: 240,
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
     marginRight: Spacing.md,
@@ -79,7 +83,64 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-    height: 130,
+    height: 140,
+  },
+  matchBadge: {
+    position: 'absolute',
+    top: Spacing.sm,
+    left: Spacing.sm,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: Colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  matchBadgePercent: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.green,
+    lineHeight: 14,
+  },
+  matchBadgeLabel: {
+    fontSize: 8,
+    color: Colors.textMuted,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  cuisineBand: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    gap: Spacing.xs,
+  },
+  cuisineText: {
+    ...Typography.caption,
+    color: '#fff',
+    fontWeight: '600',
+    flex: 1,
+  },
+  imageTagChip: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    maxWidth: 110,
+  },
+  imageTagText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
   },
   image: {
     width: '100%',
@@ -121,56 +182,33 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
   },
   name: {
-    ...Typography.h3,
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 2,
   },
   sub: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    marginBottom: 2,
-  },
-  price: {
-    ...Typography.caption,
-    color: Colors.textMuted,
     marginBottom: Spacing.xs,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
+  trustRow: {
     marginBottom: Spacing.xs,
   },
-  localBadge: {
-    backgroundColor: '#FFF4E6',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  localText: {
-    ...Typography.caption,
-    color: Colors.accent,
-    fontWeight: '600',
-  },
-  checkInsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    marginBottom: Spacing.xs,
-  },
-  checkInsText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: Spacing.xs,
-  },
-  reason: {
+  trustText: {
     ...Typography.caption,
     color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  reasonPill: {
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+  },
+  reason: {
+    fontSize: 13,
+    color: Colors.text,
     lineHeight: 17,
   },
 });

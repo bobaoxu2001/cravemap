@@ -59,13 +59,6 @@ const rewards = [
     color: '#F0F4FF',
     borderColor: '#7B9EFF',
   },
-  {
-    emoji: '🧸',
-    title: 'Mascot Plush Lottery',
-    desc: 'Enter the lottery for a limited-edition 好吃GO dango mascot plush. Only 50 made. 🍡',
-    color: '#FFF0F5',
-    borderColor: '#FFB3CC',
-  },
 ];
 
 const completedCount = Object.values(mockUser.foundingScoutProgress).filter(Boolean).length;
@@ -77,21 +70,35 @@ export default function Rewards() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>🏅 Founding Food Scout</Text>
-          <Text style={styles.headerSub}>Be part of something real. Join our first 1,000 Food Scouts.</Text>
+        {/* Hero header card */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroTopRow}>
+            <Text style={styles.heroBadgeEmoji}>🏅</Text>
+            <View style={styles.spotsRemainingPill}>
+              <Text style={styles.spotsRemainingText}>153 spots remaining</Text>
+            </View>
+          </View>
+          <Text style={styles.heroTitle}>Founding Food Scout</Text>
+          <Text style={styles.heroSub}>Only 1,000 spots. 847 claimed.</Text>
+        </View>
+
+        {/* Why this matters */}
+        <View style={styles.whyCard}>
+          <Text style={styles.whyTitle}>Why this matters</Text>
+          <Text style={styles.whyText}>
+            Real reviews need real people. The first 1,000 scouts shape what CraveMap becomes — your check-ins train the taste-match model, your picks define the local-approved feed.
+          </Text>
         </View>
 
         {/* Progress Card */}
         <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
-            <Text style={styles.progressTitle}>Your Progress</Text>
+            <Text style={styles.progressTitle}>{completedCount} of {tasks.length} unlocked</Text>
             <View style={styles.progressBadge}>
-              <Text style={styles.progressBadgeText}>{completedCount}/{tasks.length} done</Text>
+              <Text style={styles.progressBadgeText}>{Math.round(progress * 100)}% complete</Text>
             </View>
           </View>
-          <ProgressBar progress={progress} height={8} />
+          <ProgressBar progress={progress} height={12} />
           <Text style={styles.progressHint}>
             {completedCount === tasks.length
               ? '🎉 You are a Founding Food Scout!'
@@ -103,7 +110,7 @@ export default function Rewards() {
             {tasks.map((task) => {
               const done = mockUser.foundingScoutProgress[task.key];
               return (
-                <View key={task.key} style={styles.taskItem}>
+                <View key={task.key} style={[styles.taskItem, done && styles.taskItemDone]}>
                   <View style={[styles.taskCheckbox, done && styles.taskCheckboxDone]}>
                     {done ? (
                       <Ionicons name="checkmark" size={16} color="#fff" />
@@ -129,6 +136,21 @@ export default function Rewards() {
         {/* Rewards Section */}
         <View style={styles.rewardsSection}>
           <Text style={styles.rewardsSectionTitle}>🎁 Your Rewards</Text>
+
+          {/* Mascot hero reward */}
+          <View style={styles.mascotCard}>
+            <Text style={styles.mascotEmoji}>🍡</Text>
+            <Text style={styles.mascotTitle}>The 好吃GO Dango Mascot Plush</Text>
+            <Text style={styles.mascotDesc}>
+              Limited edition. Only 50 plushies will exist. Founding Food Scouts get lottery entry — no purchase needed.
+            </Text>
+            <View style={[styles.lotteryBtn, completedCount < tasks.length && styles.lotteryBtnDisabled]}>
+              <Text style={[styles.lotteryBtnText, completedCount < tasks.length && styles.lotteryBtnTextDisabled]}>
+                {completedCount < tasks.length ? `Complete ${tasks.length - completedCount} more task${tasks.length - completedCount === 1 ? '' : 's'} to enter` : 'Enter Lottery'}
+              </Text>
+            </View>
+          </View>
+
           {rewards.map((r) => (
             <View key={r.title} style={[styles.rewardCard, { backgroundColor: r.color, borderColor: r.borderColor }]}>
               <Text style={styles.rewardEmoji}>{r.emoji}</Text>
@@ -181,6 +203,114 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
+  },
+  heroCard: {
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  heroBadgeEmoji: {
+    fontSize: 36,
+  },
+  spotsRemainingPill: {
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  spotsRemainingText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  heroTitle: {
+    ...Typography.h1,
+    color: '#fff',
+    marginBottom: 2,
+  },
+  heroSub: {
+    ...Typography.body,
+    color: 'rgba(255,255,255,0.92)',
+  },
+  whyCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  whyTitle: {
+    ...Typography.label,
+    color: Colors.primary,
+    fontWeight: '700',
+    marginBottom: Spacing.xs,
+  },
+  whyText: {
+    ...Typography.caption,
+    color: Colors.text,
+    lineHeight: 18,
+  },
+  taskItemDone: {
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.green,
+    paddingLeft: Spacing.sm,
+  },
+  mascotCard: {
+    backgroundColor: '#FFF0F5',
+    borderWidth: 1.5,
+    borderColor: '#FFB3CC',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  mascotEmoji: {
+    fontSize: 56,
+    marginBottom: Spacing.sm,
+  },
+  mascotTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: Spacing.xs,
+  },
+  mascotDesc: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: Spacing.md,
+  },
+  lotteryBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  lotteryBtnDisabled: {
+    backgroundColor: Colors.border,
+  },
+  lotteryBtnText: {
+    ...Typography.label,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  lotteryBtnTextDisabled: {
+    color: Colors.textMuted,
   },
   headerTitle: {
     ...Typography.h2,

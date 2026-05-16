@@ -16,9 +16,7 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { mockRestaurants } from '../../data/mockRestaurants';
 import { mockCheckIns } from '../../data/mockCheckIns';
 import TagChip from '../../components/TagChip';
-import TasteMatchBadge from '../../components/TasteMatchBadge';
 import CheckInCard from '../../components/CheckInCard';
-import ProgressBar from '../../components/ProgressBar';
 
 export default function RestaurantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -104,32 +102,27 @@ export default function RestaurantDetail() {
             </View>
           </View>
 
-          <View style={styles.divider} />
-
-          {/* Taste Match */}
-          <View style={styles.metricsSection}>
-            <View style={styles.metricRow}>
-              <View style={styles.metricLeft}>
-                <Text style={styles.metricLabel}>Taste Match</Text>
-                <Text style={styles.metricDesc}>{restaurant.recommendationReason}</Text>
-              </View>
-              <TasteMatchBadge percent={restaurant.tasteMatchPercent} showLabel />
+          {/* Trust Strip */}
+          <View style={styles.trustStrip}>
+            <View style={styles.trustStat}>
+              <Text style={[styles.trustStatValue, { color: Colors.green }]}>{restaurant.tasteMatchPercent}%</Text>
+              <Text style={styles.trustStatLabel}>Taste Match</Text>
+              <Text style={styles.trustStatSub}>for you</Text>
             </View>
-            <ProgressBar progress={restaurant.tasteMatchPercent / 100} height={5} color={Colors.green} />
-
-            <View style={[styles.metricRow, { marginTop: Spacing.md }]}>
-              <View style={styles.metricLeft}>
-                <Text style={styles.metricLabel}>Local Trust</Text>
-                <View style={styles.checkInsRow}>
-                  <Ionicons name="checkmark-circle-outline" size={14} color={Colors.textMuted} />
-                  <Text style={styles.checkInsText}>{restaurant.verifiedCheckIns.toLocaleString()} verified check-ins</Text>
-                </View>
-              </View>
-              <View style={styles.localPercBadge}>
-                <Text style={styles.localPercText}>{restaurant.localApprovedPercent}%</Text>
-              </View>
+            <View style={styles.trustStat}>
+              <Text style={[styles.trustStatValue, { color: Colors.accent }]}>{restaurant.localApprovedPercent}%</Text>
+              <Text style={styles.trustStatLabel}>Local Trust</Text>
+              <Text style={styles.trustStatSub}>of locals approve</Text>
             </View>
-            <ProgressBar progress={restaurant.localApprovedPercent / 100} height={5} color={Colors.accent} />
+            <View style={styles.trustStat}>
+              <Text style={[styles.trustStatValue, { color: Colors.primary }]}>{restaurant.verifiedCheckIns.toLocaleString()}</Text>
+              <Text style={styles.trustStatLabel}>Verified Visits</Text>
+              <Text style={styles.trustStatSub}>real check-ins</Text>
+            </View>
+          </View>
+
+          <View style={styles.reasonCard}>
+            <Text style={styles.reasonText}>💡 {restaurant.recommendationReason}</Text>
           </View>
 
           <View style={styles.divider} />
@@ -177,22 +170,21 @@ export default function RestaurantDetail() {
 
           {/* Best for / Avoid if */}
           <View style={styles.twoColSection}>
-            <View style={styles.twoColItem}>
-              <Text style={styles.sectionTitle}>✅ Best for</Text>
+            <View style={[styles.twoColItem, styles.bestForBox]}>
+              <Text style={styles.sectionTitle}>Best for</Text>
               {restaurant.bestFor.map((item) => (
-                <View key={item} style={styles.bulletItem}>
-                  <Text style={styles.bulletDot}>•</Text>
-                  <Text style={styles.bulletText}>{item}</Text>
+                <View key={item} style={styles.iconItem}>
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.green} />
+                  <Text style={styles.iconItemText}>{item}</Text>
                 </View>
               ))}
             </View>
-            <View style={styles.twoColDivider} />
-            <View style={styles.twoColItem}>
-              <Text style={styles.sectionTitle}>⚠️ Avoid if</Text>
+            <View style={[styles.twoColItem, styles.avoidIfBox]}>
+              <Text style={styles.sectionTitle}>Avoid if</Text>
               {restaurant.avoidIf.map((item) => (
-                <View key={item} style={styles.bulletItem}>
-                  <Text style={styles.bulletDot}>•</Text>
-                  <Text style={styles.bulletText}>{item}</Text>
+                <View key={item} style={styles.iconItem}>
+                  <Ionicons name="close-circle" size={16} color="#C44545" />
+                  <Text style={styles.iconItemText}>{item}</Text>
                 </View>
               ))}
             </View>
@@ -201,13 +193,14 @@ export default function RestaurantDetail() {
           <View style={styles.divider} />
 
           {/* Check-in Feed */}
-          <Text style={styles.sectionTitle}>
-            Community Check-ins ({restaurantCheckIns.length})
+          <Text style={styles.sectionTitle}>From people who&apos;ve actually been</Text>
+          <Text style={styles.checkInSub}>
+            {restaurantCheckIns.length} verified visit{restaurantCheckIns.length === 1 ? '' : 's'} · sorted by helpfulness
           </Text>
           {restaurantCheckIns.length > 0 ? (
-            restaurantCheckIns.map((ci) => (
-              <CheckInCard key={ci.id} checkIn={ci} />
-            ))
+            [...restaurantCheckIns]
+              .sort((a, b) => b.helpful - a.helpful)
+              .map((ci) => <CheckInCard key={ci.id} checkIn={ci} />)
           ) : (
             <View style={styles.noCheckIns}>
               <Text style={styles.noCheckInsText}>Be the first to check in here!</Text>
@@ -222,20 +215,20 @@ export default function RestaurantDetail() {
       {/* Fixed action bar */}
       <View style={styles.actionBar}>
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: saved ? Colors.secondary : Colors.border }]}
+          style={styles.actionIconBtn}
           onPress={() => setSaved(!saved)}
         >
-          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? Colors.primary : Colors.text} />
-          <Text style={[styles.actionBtnText, { color: saved ? Colors.primary : Colors.text }]}>
-            {saved ? 'Saved' : 'Save'}
-          </Text>
+          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={saved ? Colors.primary : Colors.text} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, styles.actionBtnPrimary]}
           onPress={() => router.push('/check-in')}
         >
           <Ionicons name="camera-outline" size={20} color="#fff" />
-          <Text style={[styles.actionBtnText, { color: '#fff' }]}>Check In</Text>
+          <View>
+            <Text style={[styles.actionBtnText, { color: '#fff' }]}>Check In</Text>
+            <Text style={styles.actionBtnIncentive}>+200 pts</Text>
+          </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionIconBtn} onPress={openMaps}>
           <Ionicons name="navigate-outline" size={22} color={Colors.text} />
@@ -438,14 +431,79 @@ const styles = StyleSheet.create({
   },
   twoColSection: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   twoColItem: {
     flex: 1,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
   },
-  twoColDivider: {
-    width: 1,
-    backgroundColor: Colors.border,
+  bestForBox: {
+    backgroundColor: '#E8F5EE',
+  },
+  avoidIfBox: {
+    backgroundColor: '#FFF0F0',
+  },
+  iconItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  iconItemText: {
+    ...Typography.caption,
+    color: Colors.text,
+    flex: 1,
+    lineHeight: 18,
+  },
+  trustStrip: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  trustStat: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    alignItems: 'center',
+  },
+  trustStatValue: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  trustStatLabel: {
+    ...Typography.caption,
+    color: Colors.text,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  trustStatSub: {
+    fontSize: 10,
+    color: Colors.textMuted,
+  },
+  reasonCard: {
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  reasonText: {
+    ...Typography.body,
+    color: Colors.text,
+    lineHeight: 20,
+  },
+  checkInSub: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginBottom: Spacing.sm,
+    marginTop: -Spacing.xs,
+  },
+  actionBtnIncentive: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
   },
   bulletItem: {
     flexDirection: 'row',

@@ -40,12 +40,19 @@ export default function Welcome() {
 
         {/* Header */}
         <View style={styles.heroSection}>
-          <Text style={styles.emojiDecor}>🍜 🌶️ 🥟</Text>
-          <Text style={styles.chineseName}>好吃GO</Text>
+          <Text style={styles.kicker}>FOOD DISCOVERY · 5 CITIES · INVITE-ONLY</Text>
+          <View style={styles.brandRow}>
+            <Text style={styles.chineseName}>好吃GO</Text>
+            <View style={styles.betaPill}>
+              <Text style={styles.betaPillText}>BETA</Text>
+            </View>
+          </View>
           <Text style={styles.appName}>CraveMap</Text>
           <View style={styles.sloganContainer}>
-            <Text style={styles.slogan}>Find restaurants trusted by locals</Text>
-            <Text style={styles.slogan}>and people with your taste</Text>
+            <Text style={styles.headline}>Stop eating at tourist traps.</Text>
+            <Text style={styles.headlineSub}>
+              Find restaurants real locals actually go to — picked by people with your exact taste.
+            </Text>
             <Text style={styles.sloganChinese}>本地人带路，同口味避雷</Text>
           </View>
         </View>
@@ -63,13 +70,13 @@ export default function Welcome() {
           ))}
         </View>
 
-        {/* Decorative food emojis */}
-        <View style={styles.emojiRow}>
-          <Text style={styles.foodEmoji}>🍱</Text>
-          <Text style={styles.foodEmoji}>🍣</Text>
-          <Text style={styles.foodEmoji}>🌮</Text>
-          <Text style={styles.foodEmoji}>🍲</Text>
-          <Text style={styles.foodEmoji}>🥘</Text>
+        {/* Differentiation chips */}
+        <View style={styles.diffRow}>
+          {['NOT YELP', 'NOT DIANPING', 'NOT TIKTOK HYPE'].map((c) => (
+            <View key={c} style={styles.diffChip}>
+              <Text style={styles.diffChipText}>{c}</Text>
+            </View>
+          ))}
         </View>
 
         {/* CTAs */}
@@ -79,8 +86,11 @@ export default function Welcome() {
             onPress={() => router.push('/onboarding/taste-passport')}
             activeOpacity={0.85}
           >
-            <Text style={styles.primaryButtonText}>Start My Taste Passport 🛂</Text>
+            <Text style={styles.primaryButtonText}>Build My Taste Passport →</Text>
           </TouchableOpacity>
+          <Text style={styles.socialProof}>
+            Joining 847 Founding Food Scouts across NYC, LA, Bay Area, Seattle, Boston
+          </Text>
 
           <TouchableOpacity
             style={styles.secondaryButton}
@@ -132,6 +142,70 @@ const styles = StyleSheet.create({
     fontSize: 28,
     marginBottom: Spacing.md,
     letterSpacing: 8,
+  },
+  kicker: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 2,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  betaPill: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  betaPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 1,
+  },
+  headline: {
+    ...Typography.h1,
+    color: Colors.primary,
+    textAlign: 'center',
+    marginBottom: Spacing.xs,
+  },
+  headlineSub: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: Spacing.md,
+  },
+  diffRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.lg,
+  },
+  diffChip: {
+    backgroundColor: Colors.border,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  diffChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: Colors.textSecondary,
+  },
+  socialProof: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.md,
   },
   chineseName: {
     fontSize: 52,
@@ -227,7 +301,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   secondaryButtonText: {
-    ...Typography.body,
-    color: Colors.primary,
+    ...Typography.caption,
+    color: Colors.textMuted,
   },
 });

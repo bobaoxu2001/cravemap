@@ -12,22 +12,31 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { mockRestaurants } from '../../data/mockRestaurants';
+import { mockUser } from '../../data/mockUser';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
+import RestaurantCard from '../../components/RestaurantCard';
 
 const CITIES = ['New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
 
 const sections = [
-  { key: 'local-approved', emoji: '🏘️', title: 'Local-approved' },
-  { key: 'taste-match', emoji: '👤', title: 'People with your taste' },
-  { key: 'actually-spicy', emoji: '🌶️', title: 'Actually spicy' },
-  { key: 'anti-hype', emoji: '🚫', title: 'Not TikTok hype' },
-  { key: 'culture-approved', emoji: '🍜', title: 'Culture-approved' },
-  { key: 'diet-approved', emoji: '🥗', title: 'Diet-approved' },
-  { key: 'late-night', emoji: '🌙', title: 'Late-night eats' },
-  { key: 'student-favorites', emoji: '📚', title: 'Student favorites' },
-  { key: 'hidden-gems', emoji: '💎', title: 'Hidden gems' },
+  { key: 'local-approved', emoji: '🏘️', title: 'Local-approved', subtitle: (city: string) => `What people in ${city} order on repeat` },
+  { key: 'taste-match', emoji: '👤', title: 'People with your taste', subtitle: () => '94%+ match with your Taste Passport' },
+  { key: 'actually-spicy', emoji: '🌶️', title: 'Actually spicy', subtitle: () => 'Verified by spice-tolerant scouts, not menu disclaimers' },
+  { key: 'anti-hype', emoji: '🚫', title: 'Not TikTok hype', subtitle: () => "Worth-it picks the algorithms don't push" },
+  { key: 'culture-approved', emoji: '🍜', title: 'Culture-approved', subtitle: () => "Validated by people from the cuisine's home culture" },
+  { key: 'diet-approved', emoji: '🥗', title: 'Diet-approved', subtitle: () => 'Matches your dietary preferences' },
+  { key: 'late-night', emoji: '🌙', title: 'Late-night eats', subtitle: () => 'Open past 10pm, recommended by night-owls' },
+  { key: 'student-favorites', emoji: '📚', title: 'Student favorites', subtitle: () => 'Cheap, generous, no fuss' },
+  { key: 'hidden-gems', emoji: '💎', title: 'Hidden gems', subtitle: () => '<500 check-ins, but the right 500' },
 ];
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
 
 function getRestaurantsForSection(key: string, city: string) {
   let list = city ? mockRestaurants.filter((r) => r.city === city) : mockRestaurants;
@@ -46,7 +55,10 @@ export default function Home() {
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>好吃GO</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.logoSm}>好吃GO</Text>
+          <Text style={styles.greeting}>{getGreeting()}, {mockUser.name.split(' ')[0]}</Text>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.citySelector}
@@ -77,6 +89,17 @@ export default function Home() {
       )}
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Persona chip */}
+        <TouchableOpacity
+          style={styles.personaChip}
+          onPress={() => router.push('/profile')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.personaChipText}>
+            🌶️ Spicy Adventurer · {mockUser.tastePreferences.length} cuisines saved
+          </Text>
+        </TouchableOpacity>
+
         {/* Search bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
@@ -105,13 +128,34 @@ export default function Home() {
           </View>
         </TouchableOpacity>
 
+        {/* Hero featured pick */}
+        {(() => {
+          const cityList = mockRestaurants.filter((r) => r.city === selectedCity);
+          const featured = [...cityList].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent)[0];
+          if (!featured) return null;
+          return (
+            <View style={styles.heroSection}>
+              <Text style={styles.heroTitle}>🎯 Today&apos;s Pick for You</Text>
+              <Text style={styles.heroSub}>Based on your taste for spicy and savory, you&apos;ll love this.</Text>
+              <View style={styles.heroCardWrap}>
+                <RestaurantCard restaurant={featured} />
+              </View>
+            </View>
+          );
+        })()}
+
         {/* Sections */}
         {sections.map((sec) => {
           const restaurants = getRestaurantsForSection(sec.key, selectedCity);
           if (restaurants.length === 0) return null;
           return (
             <View key={sec.key} style={styles.section}>
-              <SectionHeader title={sec.title} emoji={sec.emoji} onSeeAll={() => router.push('/map')} />
+              <SectionHeader
+                title={sec.title}
+                emoji={sec.emoji}
+                subtitle={sec.subtitle(selectedCity)}
+                onSeeAll={() => router.push('/map')}
+              />
               <HorizontalScroll restaurants={restaurants} />
             </View>
           );
@@ -141,6 +185,53 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     color: Colors.primary,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  logoSm: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primary,
+    letterSpacing: 1,
+  },
+  greeting: {
+    ...Typography.h2,
+    color: Colors.text,
+    marginTop: 2,
+  },
+  personaChip: {
+    alignSelf: 'flex-start',
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  personaChipText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  heroSection: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  heroTitle: {
+    ...Typography.h2,
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  heroSub: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  heroCardWrap: {
+    alignItems: 'flex-start',
   },
   headerRight: {
     flexDirection: 'row',

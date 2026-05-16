@@ -9,10 +9,10 @@ interface CheckInCardProps {
   checkIn: CheckIn;
 }
 
-const hypeLabel: Record<CheckIn['hypeRating'], { label: string; color: string }> = {
-  worth_it: { label: '✅ Worth It', color: Colors.green },
-  overhyped: { label: '🚫 Overhyped', color: Colors.error },
-  not_sure: { label: '🤔 Not Sure', color: Colors.textMuted },
+const hypeLabel: Record<CheckIn['hypeRating'], { label: string; color: string; bg: string; emoji: string }> = {
+  worth_it: { label: 'Worth It', color: Colors.green, bg: '#E8F5EE', emoji: '✅' },
+  overhyped: { label: 'Overhyped', color: Colors.error, bg: '#FFF0F0', emoji: '🚫' },
+  not_sure: { label: 'Not Sure', color: Colors.textMuted, bg: '#F0F0F0', emoji: '🤔' },
 };
 
 export default function CheckInCard({ checkIn }: CheckInCardProps) {
@@ -22,22 +22,32 @@ export default function CheckInCard({ checkIn }: CheckInCardProps) {
       <View style={styles.header}>
         <Image source={{ uri: checkIn.userAvatar }} style={styles.avatar} />
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{checkIn.userName}</Text>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName}>{checkIn.userName}</Text>
+            {checkIn.isRepeatVisit && (
+              <View style={styles.repeatPill}>
+                <Text style={styles.repeatPillText}>🔁 Repeat visitor</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[styles.contextText, checkIn.locationVerified && styles.contextTextVerified]}>
+            {checkIn.locationVerified ? 'Verified visit · Local' : 'Verified by review'}
+          </Text>
           <Text style={styles.date}>{checkIn.date}</Text>
         </View>
-        {checkIn.locationVerified && (
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="location" size={10} color={Colors.green} />
-            <Text style={styles.verifiedText}>Verified</Text>
-          </View>
-        )}
+        <View style={[styles.hypePill, { backgroundColor: hype.bg }]}>
+          <Text style={styles.hypeEmoji}>{hype.emoji}</Text>
+          <Text style={[styles.hypeLabel, { color: hype.color }]}>{hype.label}</Text>
+        </View>
       </View>
 
       {checkIn.photos.length > 0 && (
         <Image source={{ uri: checkIn.photos[0] }} style={styles.photo} />
       )}
 
-      <Text style={styles.review} numberOfLines={4}>{checkIn.review}</Text>
+      <View style={styles.reviewBlock}>
+        <Text style={styles.review} numberOfLines={4}>{checkIn.review}</Text>
+      </View>
 
       <View style={styles.tagsRow}>
         {checkIn.tasteTags.slice(0, 3).map((tag) => (
@@ -46,10 +56,9 @@ export default function CheckInCard({ checkIn }: CheckInCardProps) {
       </View>
 
       <View style={styles.footer}>
-        <Text style={[styles.hypeLabel, { color: hype.color }]}>{hype.label}</Text>
         <View style={styles.helpfulRow}>
           <Ionicons name="thumbs-up-outline" size={14} color={Colors.textMuted} />
-          <Text style={styles.helpfulCount}>{checkIn.helpful}</Text>
+          <Text style={styles.helpfulCount}>{checkIn.helpful} helpful</Text>
         </View>
       </View>
     </View>
@@ -67,7 +76,51 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  userNameRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.xs,
+    flexWrap: 'wrap',
+  },
+  contextText: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  contextTextVerified: {
+    color: Colors.green,
+    fontWeight: '600',
+  },
+  repeatPill: {
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  repeatPillText: {
+    fontSize: 10,
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  hypePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  hypeEmoji: {
+    fontSize: 13,
+  },
+  reviewBlock: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.border,
+    paddingLeft: Spacing.sm,
     marginBottom: Spacing.sm,
   },
   avatar: {
@@ -111,7 +164,6 @@ const styles = StyleSheet.create({
   review: {
     ...Typography.body,
     color: Colors.text,
-    marginBottom: Spacing.sm,
     lineHeight: 22,
   },
   tagsRow: {

@@ -15,12 +15,25 @@ import ProgressBar from '../../components/ProgressBar';
 const TOTAL_STEPS = 6;
 
 const cities = [
-  { id: 'nyc', label: 'New York City', emoji: '🗽' },
-  { id: 'la', label: 'Los Angeles', emoji: '🌴' },
-  { id: 'bay', label: 'Bay Area', emoji: '🌉' },
-  { id: 'sea', label: 'Seattle', emoji: '🌲' },
-  { id: 'bos', label: 'Boston', emoji: '🦞' },
+  { id: 'nyc', label: 'New York City', emoji: '🗽', spots: '10 spots' },
+  { id: 'la', label: 'Los Angeles', emoji: '🌴', spots: '8 spots' },
+  { id: 'bay', label: 'Bay Area', emoji: '🌉', spots: '6 spots' },
+  { id: 'sea', label: 'Seattle', emoji: '🌲', spots: '4 spots' },
+  { id: 'bos', label: 'Boston', emoji: '🦞', spots: '4 spots' },
 ];
+
+const stepNames = ['City', 'Trust', 'Taste', 'Dislikes', 'Diet', 'Scene'];
+
+function derivePersona(data: { taste: string[]; diet: string[] }): { emoji: string; name: string } {
+  const tasteStr = data.taste.join(' ').toLowerCase();
+  const diet = data.diet.filter((d) => d !== 'None');
+  if (tasteStr.includes('spicy')) return { emoji: '🌶️', name: 'Spicy Adventurer' };
+  if (diet.some((d) => ['Vegan', 'Vegetarian', 'Halal', 'Gluten-Free', 'Dairy-Free'].includes(d))) {
+    return { emoji: '🥗', name: 'Healthy Foodie' };
+  }
+  if (data.taste.includes('Comfort Food')) return { emoji: '🍜', name: 'Comfort Seeker' };
+  return { emoji: '🍱', name: 'Authentic Explorer' };
+}
 
 const trustOptions = [
   'Locals', 'Same culture', 'Similar taste',
@@ -98,6 +111,7 @@ function CityGrid({ selected, onSelect }: { selected: string; onSelect: (id: str
           >
             <Text style={styles.cityEmoji}>{c.emoji}</Text>
             <Text style={[styles.cityLabel, active && styles.cityLabelActive]}>{c.label}</Text>
+            <Text style={styles.citySpots}>{c.spots}</Text>
           </TouchableOpacity>
         );
       })}
@@ -108,6 +122,7 @@ function CityGrid({ selected, onSelect }: { selected: string; onSelect: (id: str
 export default function TastePassport() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [showResult, setShowResult] = useState(false);
   const [data, setData] = useState<StepData>({
     city: '',
     trust: [],
@@ -138,7 +153,10 @@ export default function TastePassport() {
     if (step < TOTAL_STEPS) {
       setStep(step + 1);
     } else {
-      router.replace('/(tabs)/home');
+      setShowResult(true);
+      setTimeout(() => {
+        router.replace('/(tabs)/home');
+      }, 2000);
     }
   };
 
@@ -157,13 +175,28 @@ export default function TastePassport() {
   ];
 
   const stepSubtitles = [
-    'We will personalize recommendations for your area',
-    'Choose all that apply',
-    'Pick everything that sounds delicious',
-    'We will filter these out for you',
-    "We'll show you diet-friendly options",
-    'Find the right vibe for every occasion',
+    'We surface places real locals trust in your area — not tourist traps.',
+    'This determines whose check-ins we weight highest in your feed.',
+    'We compute a Taste Match % for every restaurant based on this.',
+    'Hard filter. Restaurants matching these patterns get pushed down or hidden.',
+    'We surface diet-friendly menu items and call out non-compliant restaurants.',
+    'Different mood = different recommendation. We learn yours.',
   ];
+
+  if (showResult) {
+    const persona = derivePersona(data);
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.resultContainer}>
+          <Text style={styles.resultEmoji}>{persona.emoji}</Text>
+          <Text style={styles.resultPersona}>{persona.name}</Text>
+          <Text style={styles.resultText}>
+            Your Taste Passport is ready. We&apos;ll match you with restaurants 247 other {persona.name}s love.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -179,6 +212,7 @@ export default function TastePassport() {
 
         {/* Progress bar */}
         <View style={styles.progressContainer}>
+          <Text style={styles.stepNameLabel}>Step {step} of {TOTAL_STEPS} · {stepNames[step - 1]}</Text>
           <ProgressBar progress={step / TOTAL_STEPS} height={4} />
         </View>
 
@@ -332,6 +366,44 @@ const styles = StyleSheet.create({
   cityCardActive: {
     backgroundColor: Colors.secondary,
     borderColor: Colors.primary,
+    transform: [{ scale: 1.02 }],
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  citySpots: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  stepNameLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    marginBottom: Spacing.xs,
+  },
+  resultContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+  },
+  resultEmoji: {
+    fontSize: 96,
+  },
+  resultPersona: {
+    ...Typography.h1,
+    color: Colors.primary,
+    textAlign: 'center',
+  },
+  resultText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   cityEmoji: {
     fontSize: 32,
