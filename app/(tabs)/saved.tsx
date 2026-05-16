@@ -1,0 +1,240 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  SafeAreaView,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
+import { mockRestaurants } from '../../data/mockRestaurants';
+import TasteMatchBadge from '../../components/TasteMatchBadge';
+
+// Mock saved restaurant IDs
+const SAVED_IDS = ['r001', 'r009', 'r011', 'r014', 'r021', 'r025'];
+
+export default function Saved() {
+  const router = useRouter();
+  const [savedIds, setSavedIds] = useState(SAVED_IDS);
+  const savedRestaurants = mockRestaurants.filter((r) => savedIds.includes(r.id));
+
+  const handleUnsave = (id: string) => {
+    setSavedIds((prev) => prev.filter((sid) => sid !== id));
+  };
+
+  if (savedRestaurants.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Saved</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🔖</Text>
+          <Text style={styles.emptyTitle}>No saved restaurants yet</Text>
+          <Text style={styles.emptyDesc}>Start exploring and save places you want to try!</Text>
+          <TouchableOpacity
+            style={styles.exploreBtn}
+            onPress={() => router.push('/(tabs)/home')}
+          >
+            <Text style={styles.exploreBtnText}>Explore Restaurants</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Saved</Text>
+        <Text style={styles.headerCount}>{savedRestaurants.length} restaurants</Text>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+        {savedRestaurants.map((r) => (
+          <TouchableOpacity
+            key={r.id}
+            style={styles.card}
+            onPress={() => router.push(`/restaurant/${r.id}`)}
+            activeOpacity={0.88}
+          >
+            <Image source={{ uri: r.images[0] }} style={styles.cardImage} />
+            <View style={styles.cardContent}>
+              <View style={styles.cardTopRow}>
+                <Text style={styles.cardName} numberOfLines={1}>{r.name}</Text>
+                <TouchableOpacity onPress={() => handleUnsave(r.id)} hitSlop={10}>
+                  <Ionicons name="bookmark" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.cardSub}>{r.neighborhood} · {r.cuisine}</Text>
+              <View style={styles.cardBadgeRow}>
+                <TasteMatchBadge percent={r.tasteMatchPercent} showLabel />
+                <Text style={styles.cardPrice}>{r.price}</Text>
+              </View>
+              <View style={styles.cardStatusRow}>
+                <View style={[styles.openDot, { backgroundColor: r.isOpen ? Colors.green : Colors.textMuted }]} />
+                <Text style={[styles.openText, { color: r.isOpen ? Colors.green : Colors.textMuted }]}>
+                  {r.isOpen ? 'Open now' : 'Closed'}
+                </Text>
+                {r.waitTime && (
+                  <>
+                    <Text style={styles.dotSep}>·</Text>
+                    <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
+                    <Text style={styles.waitText}>{r.waitTime} wait</Text>
+                  </>
+                )}
+              </View>
+              <Text style={styles.cardReason} numberOfLines={2}>{r.recommendationReason}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+        <View style={styles.bottomPad} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  headerTitle: {
+    ...Typography.h2,
+    color: Colors.text,
+  },
+  headerCount: {
+    ...Typography.label,
+    color: Colors.textMuted,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  emptyEmoji: {
+    fontSize: 56,
+    marginBottom: Spacing.sm,
+  },
+  emptyTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  emptyDesc: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  exploreBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  exploreBtnText: {
+    ...Typography.label,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  list: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardImage: {
+    width: 110,
+    height: 130,
+  },
+  cardContent: {
+    flex: 1,
+    padding: Spacing.sm,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 2,
+  },
+  cardName: {
+    ...Typography.label,
+    color: Colors.text,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  cardSub: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  cardBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  cardPrice: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  cardStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: Spacing.xs,
+  },
+  openDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  openText: {
+    ...Typography.caption,
+    fontWeight: '500',
+  },
+  dotSep: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+  },
+  waitText: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+  },
+  cardReason: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+  },
+  bottomPad: {
+    height: Spacing.xl,
+  },
+});
