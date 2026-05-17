@@ -13,9 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { FoundingScoutProgress, RewardTask } from '../../src/services/types';
 import { getFoundingScoutProgress, getRewardTasks } from '../../src/services/rewards';
+import { useAuth } from '../../src/hooks/useAuth';
 import ProgressBar from '../../components/ProgressBar';
 
-const MOCK_USER_ID = 'u001';
+const DEMO_USER_ID = 'u001';
 
 const TASK_LABELS: Record<RewardTask['key'], { done: string; pending: string }> = {
   tastePassport: { done: 'Done!', pending: 'Complete your taste profile' },
@@ -43,20 +44,76 @@ const rewards = [
 
 export default function Rewards() {
   const router = useRouter();
+  const { session, isSupabaseMode } = useAuth();
+  const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
+
   const [progress, setProgress] = useState<FoundingScoutProgress | null>(null);
   const [tasks, setTasks] = useState<RewardTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([getFoundingScoutProgress(MOCK_USER_ID), getRewardTasks(MOCK_USER_ID)])
+    if (isSupabaseMode && !userId) {
+      setLoading(false);
+      return;
+    }
+    const id = userId ?? DEMO_USER_ID;
+    setLoading(true);
+    setError('');
+    Promise.all([getFoundingScoutProgress(id), getRewardTasks(id)])
       .then(([p, t]) => { setProgress(p); setTasks(t); })
+      .catch(() => setError('Could not load your progress. Please try again.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [userId, isSupabaseMode]);
 
-  if (loading || !progress) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
         <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (isSupabaseMode && !userId) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.emptyState}>
+          <Ionicons name="lock-closed-outline" size={48} color={Colors.textMuted} />
+          <Text style={styles.emptyTitle}>Sign in to track your progress</Text>
+          <Text style={styles.emptySubtitle}>
+            Your Founding Scout rewards are tied to your account.
+          </Text>
+          <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/auth/sign-in')} activeOpacity={0.85}>
+            <Text style={styles.signInBtnText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !progress) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.emptyState}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.textMuted} />
+          <Text style={styles.emptyTitle}>Couldn't load rewards</Text>
+          <Text style={styles.emptySubtitle}>{error || 'Something went wrong.'}</Text>
+          <TouchableOpacity
+            style={styles.signInBtn}
+            onPress={() => {
+              const id = userId ?? DEMO_USER_ID;
+              setLoading(true);
+              setError('');
+              Promise.all([getFoundingScoutProgress(id), getRewardTasks(id)])
+                .then(([p, t]) => { setProgress(p); setTasks(t); })
+                .catch(() => setError('Could not load your progress. Please try again.'))
+                .finally(() => setLoading(false));
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.signInBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -488,5 +545,36 @@ const styles = StyleSheet.create({
   },
   bottomPad: {
     height: Spacing.xl,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  emptyTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+  },
+  emptySubtitle: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  signInBtn: {
+    marginTop: Spacing.md,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+  },
+  signInBtnText: {
+    ...Typography.label,
+    color: '#fff',
+    fontWeight: '700',
   },
 });
