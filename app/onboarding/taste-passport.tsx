@@ -6,11 +6,13 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import ProgressBar from '../../components/ProgressBar';
+import { useAuth } from '../../src/hooks/useAuth';
 
 const TOTAL_STEPS = 6;
 
@@ -121,6 +123,7 @@ function CityGrid({ selected, onSelect }: { selected: string; onSelect: (id: str
 
 export default function TastePassport() {
   const router = useRouter();
+  const { isAuthenticated, isSupabaseMode, loading } = useAuth();
   const [step, setStep] = useState(1);
   const [showResult, setShowResult] = useState(false);
   const [data, setData] = useState<StepData>({
@@ -182,6 +185,18 @@ export default function TastePassport() {
     'We surface diet-friendly menu items and call out non-compliant restaurants.',
     'Different mood = different recommendation. We learn yours.',
   ];
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (isSupabaseMode && !isAuthenticated) {
+    return <Redirect href="/onboarding/welcome" />;
+  }
 
   if (showResult) {
     const persona = derivePersona(data);

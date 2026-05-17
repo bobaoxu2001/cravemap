@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { UserProfile } from '../../types';
 import { getCurrentProfile } from '../../src/services/profile';
+import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 
 const menuItems = [
@@ -25,8 +26,11 @@ const menuItems = [
 
 export default function Profile() {
   const router = useRouter();
+  const { isSupabaseMode, signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
 
   useEffect(() => {
     getCurrentProfile().then(setProfile).finally(() => setLoading(false));
@@ -154,6 +158,32 @@ export default function Profile() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {isSupabaseMode && (
+          <TouchableOpacity
+            style={styles.signOutButton}
+            onPress={async () => {
+              setSigningOut(true);
+              setSignOutError('');
+              try {
+                await signOut();
+                router.replace('/onboarding/welcome');
+              } catch (err) {
+                setSignOutError(
+                  err instanceof Error ? err.message : 'Could not sign out. Please try again.'
+                );
+              } finally {
+                setSigningOut(false);
+              }
+            }}
+            disabled={signingOut}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="log-out-outline" size={18} color={Colors.primary} />
+            <Text style={styles.signOutText}>{signingOut ? 'Signing out...' : 'Sign Out'}</Text>
+          </TouchableOpacity>
+        )}
+        {signOutError ? <Text style={styles.signOutError}>{signOutError}</Text> : null}
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -336,5 +366,30 @@ const styles = StyleSheet.create({
   },
   bottomPad: {
     height: Spacing.xl,
+  },
+  signOutButton: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+    padding: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  signOutText: {
+    ...Typography.label,
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  signOutError: {
+    ...Typography.caption,
+    color: Colors.error,
+    textAlign: 'center',
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
   },
 });

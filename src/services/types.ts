@@ -1,5 +1,5 @@
 // src/services/types.ts
-import type { CheckIn } from '../../types';
+import type { CheckIn, UserProfile } from '../../types';
 
 // CheckIns
 export interface CreateCheckInInput {
@@ -48,17 +48,32 @@ export interface RewardTask {
 export interface AuthSession {
   userId: string;
   email: string;
+  accessToken?: string;
+  refreshToken?: string;
+  emailConfirmed?: boolean;
 }
 
-export interface SignInInput {
-  email: string;
-  password: string;
-}
+export type AuthStateChangeEvent =
+  | 'INITIAL_SESSION'
+  | 'SIGNED_IN'
+  | 'SIGNED_OUT'
+  | 'TOKEN_REFRESHED'
+  | 'USER_UPDATED'
+  | 'PASSWORD_RECOVERY'
+  | 'MFA_CHALLENGE_VERIFIED';
 
-export interface SignUpInput {
-  email: string;
-  password: string;
+export interface AuthUserMetadata {
   name: string;
+}
+
+export type AuthStateChangeCallback = (
+  session: AuthSession | null,
+  user: UserProfile | null,
+  event: AuthStateChangeEvent
+) => void;
+
+export interface AuthSubscription {
+  unsubscribe: () => void;
 }
 
 // Storage

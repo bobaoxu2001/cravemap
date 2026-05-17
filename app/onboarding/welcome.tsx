@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
+import { useAuth } from '../../src/hooks/useAuth';
 
 const features = [
   {
@@ -30,6 +32,57 @@ const features = [
 
 export default function Welcome() {
   const router = useRouter();
+  const { isAuthenticated, isSupabaseMode, loading, signIn, signUp } = useAuth();
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    if (isSupabaseMode && isAuthenticated) {
+      router.replace('/(tabs)/home');
+    }
+  }, [isAuthenticated, isSupabaseMode, router]);
+
+  const handleAuthSubmit = async () => {
+    const trimmedEmail = email.trim();
+    setError('');
+    setNotice('');
+
+    if (!trimmedEmail.includes('@')) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (authMode === 'sign-in') {
+        await signIn(trimmedEmail, password);
+        router.replace('/(tabs)/home');
+      } else {
+        await signUp(trimmedEmail, password, {
+          name: name.trim() || trimmedEmail.split('@')[0],
+        });
+        router.replace('/onboarding/taste-passport');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Authentication failed. Please try again.';
+      if (message.toLowerCase().includes('confirm')) {
+        setNotice(message);
+      } else {
+        setError(message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -81,23 +134,106 @@ export default function Welcome() {
 
         {/* CTAs */}
         <View style={styles.ctaContainer}>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => router.push('/onboarding/taste-passport')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryButtonText}>Build My Taste Passport →</Text>
-          </TouchableOpacity>
+          {isSupabaseMode ? (
+            <View style={styles.authCard}>
+              <View style={styles.authToggle}>
+                {(['sign-in', 'sign-up'] as const).map((mode) => (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[styles.authToggleBtn, authMode === mode && styles.authToggleBtnActive]}
+                    onPress={() => {
+                      setAuthMode(mode);
+                      setError('');
+                      setNotice('');
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.authToggleText, authMode === mode && styles.authToggleTextActive]}>
+                      {mode === 'sign-in' ? 'Sign in' : 'Create account'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {authMode === 'sign-up' && (
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Name"
+                  placeholderTextColor={Colors.textMuted}
+                  autoCapitalize="words"
+                />
+              )}
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Email"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+              />
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password"
+                placeholderTextColor={Colors.textMuted}
+                secureTextEntry
+                textContentType={authMode === 'sign-in' ? 'password' : 'newPassword'}
+              />
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {notice ? <Text style={styles.noticeText}>{notice}</Text> : null}
+
+              <TouchableOpacity
+                style={[styles.primaryButton, (submitting || loading) && styles.primaryButtonDisabled]}
+                onPress={handleAuthSubmit}
+                activeOpacity={0.85}
+                disabled={submitting || loading}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {submitting
+                    ? 'Please wait...'
+                    : authMode === 'sign-in'
+                      ? 'Sign In'
+                      : 'Create Account'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => router.push('/onboarding/taste-passport')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryButtonText}>Build My Taste Passport →</Text>
+            </TouchableOpacity>
+          )}
+
           <Text style={styles.socialProof}>
             847 Founding Food Scouts already in. 153 spots left.
           </Text>
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => router.replace('/(tabs)/home')}
+            onPress={() => {
+              if (isSupabaseMode) {
+                setAuthMode('sign-up');
+                setError('');
+                setNotice('');
+              } else {
+                router.replace('/(tabs)/home');
+              }
+            }}
             activeOpacity={0.7}
           >
-            <Text style={styles.secondaryButtonText}>Already have an account? Sign in</Text>
+            <Text style={styles.secondaryButtonText}>
+              {isSupabaseMode ? 'Create account to build your Taste Passport' : 'Browse demo without signing in'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -292,9 +428,64 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
+  primaryButtonDisabled: {
+    opacity: 0.65,
+  },
   primaryButtonText: {
     ...Typography.h3,
     color: '#fff',
+  },
+  authCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  authToggle: {
+    flexDirection: 'row',
+    backgroundColor: Colors.border,
+    borderRadius: BorderRadius.full,
+    padding: 3,
+    marginBottom: Spacing.xs,
+  },
+  authToggleBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  authToggleBtnActive: {
+    backgroundColor: Colors.card,
+  },
+  authToggleText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontWeight: '700',
+  },
+  authToggleTextActive: {
+    color: Colors.primary,
+  },
+  input: {
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    ...Typography.body,
+    color: Colors.text,
+  },
+  errorText: {
+    ...Typography.caption,
+    color: Colors.error,
+    lineHeight: 18,
+  },
+  noticeText: {
+    ...Typography.caption,
+    color: Colors.green,
+    lineHeight: 18,
   },
   secondaryButton: {
     alignItems: 'center',
