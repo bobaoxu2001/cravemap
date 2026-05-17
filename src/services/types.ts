@@ -192,3 +192,8 @@ export interface InviteStats {
   totalInvites: number;
   acceptedInvites: number;
 }
+
+export interface RedeemInviteResult {
+  success: boolean;
+  error?: string;
+}

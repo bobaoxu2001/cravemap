@@ -1,5 +1,5 @@
 // src/services/invites.ts
-import type { Invite, InviteStats } from './types';
+import type { Invite, InviteStats, RedeemInviteResult } from './types';
 import { USE_SUPABASE } from './config';
 import * as mock from './invites.mock';
 import * as supabase from './invites.supabase';
@@ -41,4 +41,12 @@ export function getMyInvites(userId: string): Promise<Invite[]> {
     () => supabase.getMyInvites(userId),
     () => mock.getMyInvites(userId)
   );
+}
+
+export function redeemInvite(userId: string, code: string): Promise<RedeemInviteResult> {
+  if (!USE_SUPABASE) {
+    return mock.redeemInvite(userId, code);
+  }
+  // Write — do not fall back silently; surface errors to the caller.
+  return supabase.redeemInvite(userId, code);
 }

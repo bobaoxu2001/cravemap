@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  TextInput,
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
@@ -16,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { UserProfile } from '../../types';
 import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
-import { createInvite } from '../../src/services/invites';
+import { createInvite, redeemInvite } from '../../src/services/invites';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 import Mascot from '../../components/Mascot';
@@ -44,6 +45,10 @@ export default function Profile() {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
   const [inviting, setInviting] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemSuccess, setRedeemSuccess] = useState(false);
+  const [redeemError, setRedeemError] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -123,6 +128,31 @@ export default function Profile() {
     }
     if (item.route) {
       router.push(item.route as any);
+    }
+  };
+
+  const handleRedeem = async () => {
+    const trimmed = redeemCode.trim().toUpperCase();
+    if (!trimmed) return;
+    if (isSupabaseMode && !userId) {
+      Alert.alert('Sign in required', 'Create an account to redeem an invite code.');
+      return;
+    }
+    setRedeeming(true);
+    setRedeemError('');
+    setRedeemSuccess(false);
+    try {
+      const result = await redeemInvite(userId ?? DEMO_USER_ID, trimmed);
+      if (result.success) {
+        setRedeemSuccess(true);
+        setRedeemCode('');
+      } else {
+        setRedeemError(result.error ?? 'Could not redeem code. Please try again.');
+      }
+    } catch (err) {
+      setRedeemError(err instanceof Error ? err.message : 'Could not redeem code. Please try again.');
+    } finally {
+      setRedeeming(false);
     }
   };
 
@@ -258,6 +288,49 @@ export default function Profile() {
               </TouchableOpacity>
             );
           })}
+        </View>
+
+        {/* Redeem invite code */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🎟️ Have an invite code?</Text>
+          <View style={styles.redeemRow}>
+            <TextInput
+              style={styles.redeemInput}
+              value={redeemCode}
+              onChangeText={(t) => {
+                setRedeemCode(t.toUpperCase());
+                setRedeemError('');
+                setRedeemSuccess(false);
+              }}
+              placeholder="CRAVE-XXXXXX"
+              placeholderTextColor={Colors.textMuted}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={12}
+              editable={!redeeming}
+            />
+            <TouchableOpacity
+              style={[
+                styles.redeemBtn,
+                (redeeming || redeemCode.trim().length < 6) && styles.redeemBtnDisabled,
+              ]}
+              onPress={() => { void handleRedeem(); }}
+              disabled={redeeming || redeemCode.trim().length < 6}
+              activeOpacity={0.85}
+            >
+              {redeeming ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.redeemBtnText}>Redeem</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {redeemSuccess && (
+            <Text style={styles.redeemSuccess}>
+              🎉 Code redeemed! You've helped a friend reach their Scout goal.
+            </Text>
+          )}
+          {!!redeemError && <Text style={styles.redeemError}>{redeemError}</Text>}
         </View>
 
         {loadError ? <Text style={styles.signOutError}>{loadError}</Text> : null}
@@ -521,5 +594,52 @@ const styles = StyleSheet.create({
     color: Colors.text,
     textAlign: 'center',
     marginBottom: Spacing.md,
+  },
+  redeemRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    alignItems: 'center',
+  },
+  redeemInput: {
+    flex: 1,
+    height: 44,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    ...Typography.label,
+    color: Colors.text,
+    backgroundColor: Colors.background,
+    letterSpacing: 1,
+  },
+  redeemBtn: {
+    height: 44,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  redeemBtnDisabled: {
+    backgroundColor: Colors.border,
+  },
+  redeemBtnText: {
+    ...Typography.label,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  redeemSuccess: {
+    ...Typography.caption,
+    color: Colors.green,
+    fontWeight: '600',
+    marginTop: Spacing.sm,
+    lineHeight: 18,
+  },
+  redeemError: {
+    ...Typography.caption,
+    color: Colors.error,
+    marginTop: Spacing.sm,
+    lineHeight: 18,
   },
 });

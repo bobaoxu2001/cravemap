@@ -1,4 +1,4 @@
-import type { Invite, InviteStats } from './types';
+import type { Invite, InviteStats, RedeemInviteResult } from './types';
 
 export function createInvite(inviteeEmail?: string): Promise<Invite> {
   const code = `CRAVE-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
@@ -17,4 +17,12 @@ export function getInviteStats(_userId: string): Promise<InviteStats> {
 
 export function getMyInvites(_userId: string): Promise<Invite[]> {
   return Promise.resolve([]);
+}
+
+export function redeemInvite(_userId: string, code: string): Promise<RedeemInviteResult> {
+  const normalised = code.trim().toUpperCase();
+  if (!normalised.startsWith('CRAVE-') || normalised.length !== 12) {
+    return Promise.resolve({ success: false, error: 'Invalid invite code. Codes look like CRAVE-XXXXXX.' });
+  }
+  return Promise.resolve({ success: true });
 }
