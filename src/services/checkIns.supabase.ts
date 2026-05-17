@@ -1,7 +1,12 @@
 import type { CheckIn } from '../../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { checkInFromRow } from './transforms';
+import { uploadCheckInPhotos } from './storage.supabase';
 import type { CheckInRow, CreateCheckInInput } from './types';
+
+function isLocalUri(uri: string): boolean {
+  return /^(file:|content:|ph:|assets-library:|blob:|data:)/i.test(uri);
+}
 
 function requireClient() {
   const client = getSupabaseClient();
@@ -78,13 +83,17 @@ export async function createCheckIn(input: CreateCheckInInput): Promise<CheckIn>
     throw new Error('You must be signed in to check in.');
   }
 
-  const { data, error } = await client
+  const inputPhotos = input.photos ?? [];
+  const localPhotos = inputPhotos.filter(isLocalUri);
+  const remotePhotos = inputPhotos.filter((uri) => !isLocalUri(uri));
+
+  const { data: insertData, error: insertError } = await client
     .from('check_ins')
     .insert({
       user_id: user.id,
       restaurant_id: input.restaurantId,
       review: input.review,
-      photos: [],
+      photos: remotePhotos,
       ordered_items: input.orderedItems ?? [],
       taste_tags: input.tasteTags ?? [],
       diet_tags: input.dietTags ?? [],
@@ -97,10 +106,42 @@ export async function createCheckIn(input: CreateCheckInInput): Promise<CheckIn>
     .select(CHECK_IN_SELECT)
     .single();
 
-  if (error) {
-    throw new Error(getErrorMessage(error.message));
+  if (insertError) {
+    throw new Error(getErrorMessage(insertError.message));
   }
-  return checkInFromRow(data as unknown as CheckInRow);
+
+  const insertedRow = insertData as unknown as CheckInRow;
+
+  if (!localPhotos.length) {
+    return checkInFromRow(insertedRow);
+  }
+
+  let uploadedUrls: string[] = [];
+  try {
+    const uploads = await uploadCheckInPhotos(user.id, insertedRow.id, localPhotos);
+    uploadedUrls = uploads.map((u) => u.url);
+  } catch (uploadError) {
+    const message = uploadError instanceof Error ? uploadError.message : 'Photo upload failed.';
+    throw new Error(`Check-in posted, but photo upload failed: ${message}`);
+  }
+
+  const finalPhotos = [...remotePhotos, ...uploadedUrls];
+
+  const { data: updateData, error: updateError } = await client
+    .from('check_ins')
+    .update({ photos: finalPhotos })
+    .eq('id', insertedRow.id)
+    .select(CHECK_IN_SELECT)
+    .single();
+
+  if (updateError) {
+    if (__DEV__) {
+      console.warn('[CraveMap] Failed to attach uploaded photos to check-in row:', updateError.message);
+    }
+    return checkInFromRow({ ...insertedRow, photos: finalPhotos });
+  }
+
+  return checkInFromRow(updateData as unknown as CheckInRow);
 }
 
 export async function markHelpful(_checkInId: string): Promise<void> {

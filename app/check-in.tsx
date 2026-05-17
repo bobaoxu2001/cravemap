@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { Restaurant } from '../types';
 import { getAllRestaurants } from '../src/services/restaurants';
@@ -25,6 +26,7 @@ import TagChip from '../components/TagChip';
 const DEMO_USER_ID = 'u001';
 
 const TOTAL_STEPS = 5;
+const MAX_PHOTOS = 6;
 
 const tasteTags = ['Spicy', 'Very Spicy', 'Savory', 'Sweet', 'Smoky', 'Sour', 'Umami', 'Light', 'Rich', 'Crispy'];
 const dietTags = ['Vegan', 'Vegetarian', 'Halal', 'Gluten-Free', 'Dairy-Free'];
@@ -83,6 +85,8 @@ export default function CheckIn() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoError, setPhotoError] = useState('');
 
   const [sampleRestaurants, setSampleRestaurants] = useState<Restaurant[]>([]);
 
@@ -100,6 +104,64 @@ export default function CheckIn() {
     if (step === 3) return review.length > 10 || selectedTasteTags.length > 0;
     if (step === 4) return hypeRating !== null;
     return true;
+  };
+
+  const remainingPhotoSlots = MAX_PHOTOS - photos.length;
+
+  const pickFromLibrary = async () => {
+    setPhotoError('');
+    if (remainingPhotoSlots <= 0) {
+      setPhotoError(`You can only attach up to ${MAX_PHOTOS} photos.`);
+      return;
+    }
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setPhotoError('Photo library access is required to attach photos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: remainingPhotoSlots,
+        quality: 0.7,
+      });
+      if (result.canceled) return;
+      const newUris = result.assets.map((a) => a.uri).filter(Boolean);
+      setPhotos((prev) => [...prev, ...newUris].slice(0, MAX_PHOTOS));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not open photo library.';
+      setPhotoError(message);
+    }
+  };
+
+  const pickFromCamera = async () => {
+    setPhotoError('');
+    if (remainingPhotoSlots <= 0) {
+      setPhotoError(`You can only attach up to ${MAX_PHOTOS} photos.`);
+      return;
+    }
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setPhotoError('Camera access is required to take photos.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+      });
+      if (result.canceled) return;
+      const newUris = result.assets.map((a) => a.uri).filter(Boolean);
+      setPhotos((prev) => [...prev, ...newUris].slice(0, MAX_PHOTOS));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not open camera.';
+      setPhotoError(message);
+    }
+  };
+
+  const removePhoto = (uri: string) => {
+    setPhotos((prev) => prev.filter((p) => p !== uri));
   };
 
   const handleSubmit = async () => {
@@ -123,7 +185,7 @@ export default function CheckIn() {
       await createCheckIn({
         restaurantId: selectedRestaurant.id,
         review,
-        photos: [],
+        photos,
         tasteTags: selectedTasteTags,
         dietTags: selectedDietTags,
         sceneTags: selectedSceneTags,
@@ -215,28 +277,68 @@ export default function CheckIn() {
                 <Text style={styles.selectedName}>{selectedRestaurant.name}</Text>
               </View>
             )}
-            <View style={styles.photoPlaceholder}>
-              <Ionicons name="camera-outline" size={40} color={Colors.textMuted} />
-              <Text style={styles.photoPlaceholderText}>Tap to add photos</Text>
-              <Text style={styles.photoPlaceholderSub}>Photos make your check-in more helpful</Text>
-            </View>
+            {photos.length === 0 ? (
+              <TouchableOpacity
+                style={styles.photoPlaceholder}
+                onPress={pickFromLibrary}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="camera-outline" size={40} color={Colors.textMuted} />
+                <Text style={styles.photoPlaceholderText}>Tap to add photos</Text>
+                <Text style={styles.photoPlaceholderSub}>Photos make your check-in more helpful</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.photoGrid}>
+                {photos.map((uri) => (
+                  <View key={uri} style={styles.photoThumbWrap}>
+                    <Image source={{ uri }} style={styles.photoThumb} />
+                    <TouchableOpacity
+                      style={styles.photoRemoveBtn}
+                      onPress={() => removePhoto(uri)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="close" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {photos.length < MAX_PHOTOS && (
+                  <TouchableOpacity
+                    style={styles.photoAddTile}
+                    onPress={pickFromLibrary}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add" size={28} color={Colors.primary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
             <View style={styles.photoButtons}>
               <TouchableOpacity
-                style={styles.photoBtn}
-                onPress={() => Alert.alert('Camera', 'Camera access would open here')}
+                style={[styles.photoBtn, remainingPhotoSlots <= 0 && styles.photoBtnDisabled]}
+                onPress={pickFromCamera}
+                disabled={remainingPhotoSlots <= 0}
               >
                 <Ionicons name="camera-outline" size={20} color={Colors.primary} />
                 <Text style={styles.photoBtnText}>Camera</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.photoBtn}
-                onPress={() => Alert.alert('Gallery', 'Photo gallery would open here')}
+                style={[styles.photoBtn, remainingPhotoSlots <= 0 && styles.photoBtnDisabled]}
+                onPress={pickFromLibrary}
+                disabled={remainingPhotoSlots <= 0}
               >
                 <Ionicons name="images-outline" size={20} color={Colors.primary} />
                 <Text style={styles.photoBtnText}>Gallery</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.photoSkipNote}>You can skip photos and still post your check-in</Text>
+            {photoError ? (
+              <Text style={styles.photoErrorText}>{photoError}</Text>
+            ) : (
+              <Text style={styles.photoSkipNote}>
+                {photos.length > 0
+                  ? `${photos.length}/${MAX_PHOTOS} photos selected — you can also skip and post text-only.`
+                  : 'You can skip photos and still post your check-in'}
+              </Text>
+            )}
           </View>
         )}
 
@@ -560,6 +662,52 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textMuted,
     textAlign: 'center',
+  },
+  photoErrorText: {
+    ...Typography.caption,
+    color: Colors.error,
+    textAlign: 'center',
+  },
+  photoBtnDisabled: {
+    opacity: 0.5,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  photoThumbWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  photoThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoAddTile: {
+    width: 100,
+    height: 100,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.card,
   },
   reviewSection: {
     gap: Spacing.sm,
