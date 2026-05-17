@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,13 +17,25 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { Restaurant, CheckIn } from '../../types';
 import { getRestaurantById } from '../../src/services/restaurants';
 import { getCheckInsByRestaurantId } from '../../src/services/checkIns';
+import {
+  isRestaurantSaved,
+  saveRestaurant,
+  unsaveRestaurant,
+} from '../../src/services/saved';
+import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 import CheckInCard from '../../components/CheckInCard';
+
+const DEMO_USER_ID = 'u001';
 
 export default function RestaurantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { session, isSupabaseMode } = useAuth();
+  const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
+
   const [saved, setSaved] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
@@ -34,6 +46,45 @@ export default function RestaurantDetail() {
       .then(([r, c]) => { setRestaurant(r ?? null); setCheckIns(c); })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Initialize saved state once restaurant ID and userId are known.
+  useEffect(() => {
+    if (!id || !userId) return;
+    isRestaurantSaved(userId, id)
+      .then(setSaved)
+      .catch(() => { /* leave as false on error */ });
+  }, [id, userId]);
+
+  const handleToggleSave = useCallback(async () => {
+    if (isSupabaseMode && !userId) {
+      Alert.alert(
+        'Sign in required',
+        'Create an account to save restaurants.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign In', onPress: () => router.replace('/onboarding/welcome') },
+        ]
+      );
+      return;
+    }
+
+    if (!userId || saveLoading) return;
+
+    const next = !saved;
+    setSaved(next);
+    setSaveLoading(true);
+    try {
+      if (next) {
+        await saveRestaurant(userId, id);
+      } else {
+        await unsaveRestaurant(userId, id);
+      }
+    } catch {
+      setSaved(!next); // rollback on failure
+    } finally {
+      setSaveLoading(false);
+    }
+  }, [id, isSupabaseMode, router, saved, saveLoading, userId]);
 
   if (loading) {
     return (
@@ -93,7 +144,8 @@ export default function RestaurantDetail() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.overlayBtn}
-            onPress={() => setSaved(!saved)}
+            onPress={handleToggleSave}
+            disabled={saveLoading}
           >
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
@@ -277,7 +329,8 @@ export default function RestaurantDetail() {
       <View style={styles.actionBar}>
         <TouchableOpacity
           style={styles.actionIconBtn}
-          onPress={() => setSaved(!saved)}
+          onPress={handleToggleSave}
+          disabled={saveLoading}
         >
           <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={saved ? Colors.primary : Colors.text} />
         </TouchableOpacity>

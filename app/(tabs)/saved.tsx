@@ -14,21 +14,38 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant } from '../../types';
 import { getSavedRestaurants, unsaveRestaurant } from '../../src/services/saved';
+import { useAuth } from '../../src/hooks/useAuth';
 import TasteMatchBadge from '../../components/TasteMatchBadge';
 
-const MOCK_USER_ID = 'u001';
+const DEMO_USER_ID = 'u001';
 
 export default function Saved() {
   const router = useRouter();
+  const { session, isSupabaseMode } = useAuth();
+  const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
+
   const [savedRestaurants, setSavedRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    getSavedRestaurants(MOCK_USER_ID).then(setSavedRestaurants).finally(() => setLoading(false));
-  }, []);
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError('');
+    getSavedRestaurants(userId)
+      .then(setSavedRestaurants)
+      .catch((err) => {
+        setLoadError(err instanceof Error ? err.message : 'Could not load saved restaurants.');
+      })
+      .finally(() => setLoading(false));
+  }, [userId]);
 
   const handleUnsave = async (id: string) => {
-    await unsaveRestaurant(MOCK_USER_ID, id);
+    if (!userId) return;
+    await unsaveRestaurant(userId, id);
     setSavedRestaurants((prev) => prev.filter((r) => r.id !== id));
   };
 
@@ -36,6 +53,56 @@ export default function Saved() {
     return (
       <SafeAreaView style={styles.safe}>
         <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (isSupabaseMode && !userId) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Saved</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🔐</Text>
+          <Text style={styles.emptyTitle}>Sign in to save restaurants.</Text>
+          <Text style={styles.emptyDesc}>Your saved spots will sync across devices when you have an account.</Text>
+          <TouchableOpacity
+            style={styles.exploreBtn}
+            onPress={() => router.replace('/onboarding/welcome')}
+          >
+            <Text style={styles.exploreBtnText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Saved</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>⚠️</Text>
+          <Text style={styles.emptyTitle}>Could not load your saved restaurants.</Text>
+          <Text style={styles.emptyDesc}>{loadError}</Text>
+          <TouchableOpacity
+            style={styles.exploreBtn}
+            onPress={() => {
+              if (!userId) return;
+              setLoading(true);
+              setLoadError('');
+              getSavedRestaurants(userId)
+                .then(setSavedRestaurants)
+                .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load saved restaurants.'))
+                .finally(() => setLoading(false));
+            }}
+          >
+            <Text style={styles.exploreBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
