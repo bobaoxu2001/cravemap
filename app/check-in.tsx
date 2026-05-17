@@ -85,6 +85,7 @@ export default function CheckIn() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [submitWarning, setSubmitWarning] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
 
@@ -181,8 +182,9 @@ export default function CheckIn() {
 
     setSubmitting(true);
     setSubmitError('');
+    setSubmitWarning('');
     try {
-      await createCheckIn({
+      const result = await createCheckIn({
         restaurantId: selectedRestaurant.id,
         review,
         photos,
@@ -192,6 +194,9 @@ export default function CheckIn() {
         hypeRating,
         locationVerified: locationStatus === 'verified',
       });
+      if (result.warning) {
+        setSubmitWarning(result.warning);
+      }
       setShowSuccess(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Check-in failed. Please try again.';
@@ -496,6 +501,12 @@ export default function CheckIn() {
             <Text style={styles.successSub}>
               Your take on {selectedRestaurant?.name} just hit the local-approved feed.
             </Text>
+            {submitWarning ? (
+              <View style={styles.warningBanner}>
+                <Ionicons name="warning-outline" size={16} color={Colors.accent} />
+                <Text style={styles.warningBannerText}>{submitWarning}</Text>
+              </View>
+            ) : null}
             <View style={styles.pointsRow}>
               <Text style={styles.pointsEarned}>+200 points earned</Text>
               {locationStatus === 'verified' && (
@@ -941,6 +952,23 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textMuted,
     textAlign: 'center',
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+    backgroundColor: '#FFF8E1',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  warningBannerText: {
+    ...Typography.caption,
+    color: Colors.text,
+    flex: 1,
+    lineHeight: 18,
   },
   successBtn: {
     backgroundColor: Colors.primary,

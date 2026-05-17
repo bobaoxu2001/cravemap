@@ -2,7 +2,7 @@ import type { CheckIn } from '../../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { checkInFromRow } from './transforms';
 import { uploadCheckInPhotos } from './storage.supabase';
-import type { CheckInRow, CreateCheckInInput } from './types';
+import type { CheckInRow, CreateCheckInInput, CreateCheckInResult } from './types';
 
 function isLocalUri(uri: string): boolean {
   return /^(file:|content:|ph:|assets-library:|blob:|data:)/i.test(uri);
@@ -75,7 +75,7 @@ export function getCheckInsByUserId(userId: string): Promise<CheckIn[]> {
   );
 }
 
-export async function createCheckIn(input: CreateCheckInInput): Promise<CheckIn> {
+export async function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInResult> {
   const client = requireClient();
 
   const { data: { user }, error: authError } = await client.auth.getUser();
@@ -106,23 +106,41 @@ export async function createCheckIn(input: CreateCheckInInput): Promise<CheckIn>
     .select(CHECK_IN_SELECT)
     .single();
 
+  // Insert failure is the only fatal case — the row does not exist, retry is safe.
   if (insertError) {
     throw new Error(getErrorMessage(insertError.message));
   }
 
   const insertedRow = insertData as unknown as CheckInRow;
+  const baseCheckIn = checkInFromRow(insertedRow);
 
   if (!localPhotos.length) {
-    return checkInFromRow(insertedRow);
+    return baseCheckIn;
   }
 
+  // From this point on the check-in row exists. Never throw — return a
+  // CreateCheckInResult with an optional warning so the caller does not
+  // retry and create a duplicate row.
   let uploadedUrls: string[] = [];
+  let warning: string | undefined;
+
   try {
     const uploads = await uploadCheckInPhotos(user.id, insertedRow.id, localPhotos);
     uploadedUrls = uploads.map((u) => u.url);
+    if (uploadedUrls.length < localPhotos.length) {
+      const missing = localPhotos.length - uploadedUrls.length;
+      warning = `Check-in posted, but ${missing} of ${localPhotos.length} photo${missing === 1 ? '' : 's'} couldn't upload.`;
+    }
   } catch (uploadError) {
-    const message = uploadError instanceof Error ? uploadError.message : 'Photo upload failed.';
-    throw new Error(`Check-in posted, but photo upload failed: ${message}`);
+    if (__DEV__) {
+      const msg = uploadError instanceof Error ? uploadError.message : String(uploadError);
+      console.warn('[CraveMap] All photo uploads failed:', msg);
+    }
+    warning = "Check-in posted, but photos couldn't upload. You can edit the post later to add them.";
+  }
+
+  if (uploadedUrls.length === 0) {
+    return { ...baseCheckIn, warning };
   }
 
   const finalPhotos = [...remotePhotos, ...uploadedUrls];
@@ -138,10 +156,13 @@ export async function createCheckIn(input: CreateCheckInInput): Promise<CheckIn>
     if (__DEV__) {
       console.warn('[CraveMap] Failed to attach uploaded photos to check-in row:', updateError.message);
     }
-    return checkInFromRow({ ...insertedRow, photos: finalPhotos });
+    return {
+      ...checkInFromRow({ ...insertedRow, photos: finalPhotos }),
+      warning: warning ?? 'Check-in posted. Photos may take a moment to show up.',
+    };
   }
 
-  return checkInFromRow(updateData as unknown as CheckInRow);
+  return { ...checkInFromRow(updateData as unknown as CheckInRow), warning };
 }
 
 export async function markHelpful(_checkInId: string): Promise<void> {

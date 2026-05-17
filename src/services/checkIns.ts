@@ -3,7 +3,7 @@ import type { CheckIn } from '../../types';
 import { USE_SUPABASE } from './config';
 import * as mock from './checkIns.mock';
 import * as supabase from './checkIns.supabase';
-import type { CreateCheckInInput } from './types';
+import type { CreateCheckInInput, CreateCheckInResult } from './types';
 
 async function withMockFallback<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
   try {
@@ -46,7 +46,7 @@ export function getCheckInsByUserId(userId: string): Promise<CheckIn[]> {
   );
 }
 
-export function createCheckIn(input: CreateCheckInInput): Promise<CheckIn> {
+export function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInResult> {
   if (!USE_SUPABASE) {
     return mock.createCheckIn(input);
   }

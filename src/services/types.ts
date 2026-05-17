@@ -2,6 +2,11 @@
 import type { CheckIn, UserProfile } from '../../types';
 
 // CheckIns
+export interface CreateCheckInResult extends CheckIn {
+  /** Non-fatal warning surfaced to the UI (e.g. partial photo upload failure). */
+  warning?: string;
+}
+
 export interface CreateCheckInInput {
   restaurantId: string;
   review: string;

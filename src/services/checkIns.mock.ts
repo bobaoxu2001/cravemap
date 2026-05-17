@@ -1,7 +1,7 @@
 import type { CheckIn } from '../../types';
 import { mockCheckIns } from '../../data/mockCheckIns';
 import { mockUser } from '../../data/mockUser';
-import type { CreateCheckInInput } from './types';
+import type { CreateCheckInInput, CreateCheckInResult } from './types';
 
 export function getAllCheckIns(): Promise<CheckIn[]> {
   return Promise.resolve(mockCheckIns);
@@ -19,10 +19,10 @@ export function getCheckInsByUserId(userId: string): Promise<CheckIn[]> {
   return Promise.resolve(mockCheckIns.filter((c) => c.userId === userId));
 }
 
-export function createCheckIn(input: CreateCheckInInput): Promise<CheckIn> {
+export function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInResult> {
   // Real persistence comes with Supabase wiring. For now we construct
   // and return a new CheckIn without mutating mockCheckIns.
-  const checkIn: CheckIn = {
+  const checkIn: CreateCheckInResult = {
     id: `c_${Date.now()}`,
     restaurantId: input.restaurantId,
     userId: mockUser.id,
