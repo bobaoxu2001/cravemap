@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Image,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,9 +17,12 @@ import { Restaurant } from '../../types';
 import { getAllRestaurants } from '../../src/services/restaurants';
 import TasteMatchBadge from '../../components/TasteMatchBadge';
 import TagChip from '../../components/TagChip';
+import RestaurantMap from '../../components/RestaurantMap';
 
 const CITIES = ['All', 'New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
 const SORT_OPTIONS = ['Taste Match', 'Local Approved', 'Check-ins', 'Newest'];
+
+const IS_WEB = Platform.OS === 'web';
 
 function RestaurantListItem({ restaurant }: { restaurant: Restaurant }) {
   const router = useRouter();
@@ -56,25 +60,86 @@ function RestaurantListItem({ restaurant }: { restaurant: Restaurant }) {
   );
 }
 
+function PreviewCard({ restaurant, onClose }: { restaurant: Restaurant; onClose: () => void }) {
+  const router = useRouter();
+  return (
+    <View style={styles.previewCard}>
+      <TouchableOpacity style={styles.previewClose} onPress={onClose} hitSlop={10} activeOpacity={0.7}>
+        <Ionicons name="close" size={18} color={Colors.textMuted} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+        style={styles.previewBody}
+      >
+        <Image source={{ uri: restaurant.images[0] }} style={styles.previewImage} />
+        <View style={styles.previewInfo}>
+          <View style={styles.previewTopRow}>
+            <Text style={styles.previewName} numberOfLines={1}>{restaurant.name}</Text>
+            <Text style={styles.previewPrice}>{restaurant.price}</Text>
+          </View>
+          <Text style={styles.previewSub} numberOfLines={1}>
+            {restaurant.neighborhood} · {restaurant.cuisine}
+          </Text>
+          <View style={styles.previewBadgeRow}>
+            <TasteMatchBadge percent={restaurant.tasteMatchPercent} showLabel />
+            <View style={styles.localBadge}>
+              <Text style={styles.localText}>{restaurant.localApprovedPercent}% local</Text>
+            </View>
+          </View>
+          <View style={styles.previewTags}>
+            {restaurant.tags.slice(0, 2).map((t) => (
+              <TagChip key={t} label={t} variant="neutral" size="sm" />
+            ))}
+          </View>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.previewCta}
+        onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.previewCtaText}>View details</Text>
+        <Ionicons name="chevron-forward" size={16} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 export default function MapScreen() {
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>(IS_WEB ? 'list' : 'map');
   const [selectedCity, setSelectedCity] = useState('All');
   const [sortBy, setSortBy] = useState('Taste Match');
   const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     getAllRestaurants().then(setAllRestaurants).finally(() => setLoading(false));
   }, []);
 
-  const filtered = allRestaurants
-    .filter((r) => selectedCity === 'All' || r.city === selectedCity)
-    .sort((a, b) => {
-      if (sortBy === 'Taste Match') return b.tasteMatchPercent - a.tasteMatchPercent;
-      if (sortBy === 'Local Approved') return b.localApprovedPercent - a.localApprovedPercent;
-      if (sortBy === 'Check-ins') return b.verifiedCheckIns - a.verifiedCheckIns;
-      return 0;
-    });
+  const filtered = useMemo(() => {
+    return allRestaurants
+      .filter((r) => selectedCity === 'All' || r.city === selectedCity)
+      .sort((a, b) => {
+        if (sortBy === 'Taste Match') return b.tasteMatchPercent - a.tasteMatchPercent;
+        if (sortBy === 'Local Approved') return b.localApprovedPercent - a.localApprovedPercent;
+        if (sortBy === 'Check-ins') return b.verifiedCheckIns - a.verifiedCheckIns;
+        return 0;
+      });
+  }, [allRestaurants, selectedCity, sortBy]);
+
+  // Drop selection if the selected restaurant is no longer in the filtered set.
+  useEffect(() => {
+    if (selectedId && !filtered.some((r) => r.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [filtered, selectedId]);
+
+  const selected = useMemo(
+    () => (selectedId ? filtered.find((r) => r.id === selectedId) ?? null : null),
+    [filtered, selectedId]
+  );
 
   if (loading) {
     return (
@@ -90,22 +155,30 @@ export default function MapScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Explore</Text>
         <View style={styles.toggle}>
-          {(['list', 'map'] as const).map((mode) => (
-            <TouchableOpacity
-              key={mode}
-              style={[styles.toggleBtn, viewMode === mode && styles.toggleBtnActive]}
-              onPress={() => setViewMode(mode)}
-            >
-              <Ionicons
-                name={mode === 'list' ? 'list-outline' : 'map-outline'}
-                size={16}
-                color={viewMode === mode ? '#fff' : Colors.textSecondary}
-              />
-              <Text style={[styles.toggleText, viewMode === mode && styles.toggleTextActive]}>
-                {mode === 'list' ? 'List' : 'Map'}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {(['list', 'map'] as const).map((mode) => {
+            const disabled = IS_WEB && mode === 'map';
+            return (
+              <TouchableOpacity
+                key={mode}
+                style={[
+                  styles.toggleBtn,
+                  viewMode === mode && styles.toggleBtnActive,
+                  disabled && styles.toggleBtnDisabled,
+                ]}
+                onPress={() => !disabled && setViewMode(mode)}
+                disabled={disabled}
+              >
+                <Ionicons
+                  name={mode === 'list' ? 'list-outline' : 'map-outline'}
+                  size={16}
+                  color={viewMode === mode ? '#fff' : Colors.textSecondary}
+                />
+                <Text style={[styles.toggleText, viewMode === mode && styles.toggleTextActive]}>
+                  {mode === 'list' ? 'List' : 'Map'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -138,39 +211,27 @@ export default function MapScreen() {
       {viewMode === 'list' ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContainer}>
           <Text style={styles.resultCount}>{filtered.length} restaurants</Text>
-          {filtered.map((r) => (
-            <RestaurantListItem key={r.id} restaurant={r} />
-          ))}
+          {filtered.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No spots match these filters yet.</Text>
+              <Text style={styles.emptySubtitle}>Try a different city or sort option.</Text>
+            </View>
+          ) : (
+            filtered.map((r) => <RestaurantListItem key={r.id} restaurant={r} />)
+          )}
         </ScrollView>
       ) : (
-        <View style={styles.mapPlaceholder}>
-          <View style={styles.mapMockBg}>
-            <Text style={styles.mapGrid}>{'—  —  —  —  —  —\n|  .  .  .  .  .  |\n—  —  —  —  —  —\n|  .  .  .  .  .  |\n—  —  —  —  —  —'}</Text>
-          </View>
-          {/* Pin cards */}
-          <View style={styles.mapPinCard}>
-            <Text style={styles.mapPin}>📍</Text>
-            <View style={styles.mapPinInfo}>
-              <Text style={styles.mapPinName}>Xi'an Famous Foods</Text>
-              <Text style={styles.mapPinSub}>Flushing · 94% match</Text>
+        <View style={styles.mapContainer}>
+          <RestaurantMap
+            restaurants={filtered}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+          {selected && (
+            <View style={styles.previewWrap} pointerEvents="box-none">
+              <PreviewCard restaurant={selected} onClose={() => setSelectedId(null)} />
             </View>
-          </View>
-          <View style={[styles.mapPinCard, { top: '35%', left: '40%' }]}>
-            <Text style={styles.mapPin}>📍</Text>
-            <View style={styles.mapPinInfo}>
-              <Text style={styles.mapPinName}>Spicy Village</Text>
-              <Text style={styles.mapPinSub}>Chinatown · 91% match</Text>
-            </View>
-          </View>
-          <View style={styles.mapOverlay}>
-            <Ionicons name="map" size={40} color={Colors.primary} />
-            <Text style={styles.mapOverlayTitle}>Interactive Map</Text>
-            <Text style={styles.mapOverlayText}>Native maps integration coming soon.</Text>
-            <Text style={styles.mapOverlayText}>Use List view to explore {filtered.length} restaurants.</Text>
-            <TouchableOpacity style={styles.switchToListBtn} onPress={() => setViewMode('list')}>
-              <Text style={styles.switchToListText}>Switch to List View</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -209,6 +270,9 @@ const styles = StyleSheet.create({
   },
   toggleBtnActive: {
     backgroundColor: Colors.primary,
+  },
+  toggleBtnDisabled: {
+    opacity: 0.4,
   },
   toggleText: {
     ...Typography.label,
@@ -354,90 +418,114 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 16,
   },
-  mapPlaceholder: {
-    flex: 1,
-    position: 'relative',
-  },
-  mapMockBg: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#E8F0E8',
+  emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.xxl,
+    gap: Spacing.xs,
   },
-  mapGrid: {
-    fontFamily: 'monospace',
-    fontSize: 24,
-    color: '#C8D8C8',
-    lineHeight: 40,
-    textAlign: 'center',
-  },
-  mapPinCard: {
-    position: 'absolute',
-    top: '25%',
-    left: '20%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-    maxWidth: 180,
-  },
-  mapPin: {
-    fontSize: 20,
-    marginRight: Spacing.xs,
-  },
-  mapPinInfo: {
-    flex: 1,
-  },
-  mapPinName: {
-    ...Typography.caption,
-    color: Colors.text,
-    fontWeight: '700',
-  },
-  mapPinSub: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    fontSize: 10,
-  },
-  mapOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    alignItems: 'center',
-    gap: Spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  mapOverlayTitle: {
+  emptyTitle: {
     ...Typography.h3,
     color: Colors.text,
+    textAlign: 'center',
   },
-  mapOverlayText: {
+  emptySubtitle: {
     ...Typography.body,
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  switchToListBtn: {
+  mapContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  previewWrap: {
+    position: 'absolute',
+    bottom: Spacing.md,
+    left: Spacing.md,
+    right: Spacing.md,
+  },
+  previewCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  previewClose: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  previewBody: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  previewImage: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.md,
+  },
+  previewInfo: {
+    flex: 1,
+    paddingRight: Spacing.xl,
+  },
+  previewTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 2,
+  },
+  previewName: {
+    ...Typography.label,
+    color: Colors.text,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: Spacing.xs,
+  },
+  previewPrice: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  previewSub: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  previewBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: 4,
+  },
+  previewTags: {
+    flexDirection: 'row',
+  },
+  previewCta: {
+    marginTop: Spacing.sm,
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.sm,
-    marginTop: Spacing.xs,
+    paddingVertical: Spacing.xs + 2,
+    paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
-  switchToListText: {
+  previewCtaText: {
     ...Typography.label,
     color: '#fff',
     fontWeight: '700',
