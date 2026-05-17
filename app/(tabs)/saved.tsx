@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,24 +7,38 @@ import {
   Image,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
-import { mockRestaurants } from '../../data/mockRestaurants';
+import { Restaurant } from '../../types';
+import { getSavedRestaurants, unsaveRestaurant } from '../../src/services/saved';
 import TasteMatchBadge from '../../components/TasteMatchBadge';
 
-// Mock saved restaurant IDs
-const SAVED_IDS = ['r001', 'r009', 'r011', 'r014', 'r021', 'r025'];
+const MOCK_USER_ID = 'u001';
 
 export default function Saved() {
   const router = useRouter();
-  const [savedIds, setSavedIds] = useState(SAVED_IDS);
-  const savedRestaurants = mockRestaurants.filter((r) => savedIds.includes(r.id));
+  const [savedRestaurants, setSavedRestaurants] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleUnsave = (id: string) => {
-    setSavedIds((prev) => prev.filter((sid) => sid !== id));
+  useEffect(() => {
+    getSavedRestaurants(MOCK_USER_ID).then(setSavedRestaurants).finally(() => setLoading(false));
+  }, []);
+
+  const handleUnsave = async (id: string) => {
+    await unsaveRestaurant(MOCK_USER_ID, id);
+    setSavedRestaurants((prev) => prev.filter((r) => r.id !== id));
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   if (savedRestaurants.length === 0) {
     return (

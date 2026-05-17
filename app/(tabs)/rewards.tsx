@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,43 +6,23 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
-import { mockUser } from '../../data/mockUser';
+import { FoundingScoutProgress, RewardTask } from '../../src/services/types';
+import { getFoundingScoutProgress, getRewardTasks } from '../../src/services/rewards';
 import ProgressBar from '../../components/ProgressBar';
 
-const tasks = [
-  {
-    key: 'tastePassport' as const,
-    label: 'Complete Taste Passport',
-    doneLabel: 'Done!',
-    pendingLabel: 'Complete your taste profile',
-    points: 50,
-  },
-  {
-    key: 'threeCheckIns' as const,
-    label: 'Post 3 real check-ins',
-    doneLabel: '3/3 posted',
-    pendingLabel: '1/3 posted',
-    points: 150,
-  },
-  {
-    key: 'verifiedCheckIn' as const,
-    label: 'Get 1 location-verified check-in',
-    doneLabel: 'Verified!',
-    pendingLabel: 'Not yet',
-    points: 100,
-  },
-  {
-    key: 'twoInvites' as const,
-    label: 'Invite 2 friends',
-    doneLabel: '2/2 invited',
-    pendingLabel: '0/2 invited',
-    points: 100,
-  },
-];
+const MOCK_USER_ID = 'u001';
+
+const TASK_LABELS: Record<RewardTask['key'], { done: string; pending: string }> = {
+  tastePassport: { done: 'Done!', pending: 'Complete your taste profile' },
+  threeCheckIns: { done: '3/3 posted', pending: '1/3 posted' },
+  verifiedCheckIn: { done: 'Verified!', pending: 'Not yet' },
+  twoInvites: { done: '2/2 invited', pending: '0/2 invited' },
+};
 
 const rewards = [
   {
@@ -61,11 +41,28 @@ const rewards = [
   },
 ];
 
-const completedCount = Object.values(mockUser.foundingScoutProgress).filter(Boolean).length;
-const progress = completedCount / tasks.length;
-
 export default function Rewards() {
   const router = useRouter();
+  const [progress, setProgress] = useState<FoundingScoutProgress | null>(null);
+  const [tasks, setTasks] = useState<RewardTask[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([getFoundingScoutProgress(MOCK_USER_ID), getRewardTasks(MOCK_USER_ID)])
+      .then(([p, t]) => { setProgress(p); setTasks(t); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading || !progress) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  const completedCount = progress.completedCount;
+  const progressPercent = progress.percentComplete;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -93,43 +90,40 @@ export default function Rewards() {
         {/* Progress Card */}
         <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
-            <Text style={styles.progressTitle}>{completedCount} of {tasks.length} unlocked</Text>
+            <Text style={styles.progressTitle}>{completedCount} of {progress.totalCount} unlocked</Text>
             <View style={styles.progressBadge}>
-              <Text style={styles.progressBadgeText}>{Math.round(progress * 100)}% complete</Text>
+              <Text style={styles.progressBadgeText}>{Math.round(progressPercent * 100)}% complete</Text>
             </View>
           </View>
-          <ProgressBar progress={progress} height={12} />
+          <ProgressBar progress={progressPercent} height={12} />
           <Text style={styles.progressHint}>
-            {completedCount === tasks.length
+            {completedCount === progress.totalCount
               ? '🎉 You are a Founding Food Scout!'
-              : `${tasks.length - completedCount} more task${tasks.length - completedCount === 1 ? '' : 's'} to unlock all rewards`}
+              : `${progress.totalCount - completedCount} more task${progress.totalCount - completedCount === 1 ? '' : 's'} to unlock all rewards`}
           </Text>
 
           {/* Tasks */}
           <View style={styles.taskList}>
-            {tasks.map((task) => {
-              const done = mockUser.foundingScoutProgress[task.key];
-              return (
-                <View key={task.key} style={[styles.taskItem, done && styles.taskItemDone]}>
-                  <View style={[styles.taskCheckbox, done && styles.taskCheckboxDone]}>
-                    {done ? (
-                      <Ionicons name="checkmark" size={16} color="#fff" />
-                    ) : (
-                      <View style={styles.taskCheckboxEmpty} />
-                    )}
-                  </View>
-                  <View style={styles.taskInfo}>
-                    <Text style={[styles.taskLabel, done && styles.taskLabelDone]}>{task.label}</Text>
-                    <Text style={[styles.taskStatus, done && styles.taskStatusDone]}>
-                      {done ? task.doneLabel : task.pendingLabel}
-                    </Text>
-                  </View>
-                  <View style={styles.pointsBadge}>
-                    <Text style={styles.pointsText}>+{task.points}pts</Text>
-                  </View>
+            {tasks.map((task) => (
+              <View key={task.key} style={[styles.taskItem, task.done && styles.taskItemDone]}>
+                <View style={[styles.taskCheckbox, task.done && styles.taskCheckboxDone]}>
+                  {task.done ? (
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                  ) : (
+                    <View style={styles.taskCheckboxEmpty} />
+                  )}
                 </View>
-              );
-            })}
+                <View style={styles.taskInfo}>
+                  <Text style={[styles.taskLabel, task.done && styles.taskLabelDone]}>{task.label}</Text>
+                  <Text style={[styles.taskStatus, task.done && styles.taskStatusDone]}>
+                    {task.done ? TASK_LABELS[task.key].done : TASK_LABELS[task.key].pending}
+                  </Text>
+                </View>
+                <View style={styles.pointsBadge}>
+                  <Text style={styles.pointsText}>+{task.points}pts</Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -144,9 +138,9 @@ export default function Rewards() {
             <Text style={styles.mascotDesc}>
               Limited edition. Only 50 plushies will exist. Founding Food Scouts get lottery entry — no purchase needed.
             </Text>
-            <View style={[styles.lotteryBtn, completedCount < tasks.length && styles.lotteryBtnDisabled]}>
-              <Text style={[styles.lotteryBtnText, completedCount < tasks.length && styles.lotteryBtnTextDisabled]}>
-                {completedCount < tasks.length ? `Complete ${tasks.length - completedCount} more task${tasks.length - completedCount === 1 ? '' : 's'} to enter` : 'Enter Lottery'}
+            <View style={[styles.lotteryBtn, completedCount < progress.totalCount && styles.lotteryBtnDisabled]}>
+              <Text style={[styles.lotteryBtnText, completedCount < progress.totalCount && styles.lotteryBtnTextDisabled]}>
+                {completedCount < progress.totalCount ? `Complete ${progress.totalCount - completedCount} more task${progress.totalCount - completedCount === 1 ? '' : 's'} to enter` : 'Enter Lottery'}
               </Text>
             </View>
           </View>

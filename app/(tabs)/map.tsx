@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,13 @@ import {
   StyleSheet,
   SafeAreaView,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
-import { mockRestaurants } from '../../data/mockRestaurants';
 import { Restaurant } from '../../types';
+import { getAllRestaurants } from '../../src/services/restaurants';
 import TasteMatchBadge from '../../components/TasteMatchBadge';
 import TagChip from '../../components/TagChip';
 
@@ -59,8 +60,14 @@ export default function MapScreen() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [selectedCity, setSelectedCity] = useState('All');
   const [sortBy, setSortBy] = useState('Taste Match');
+  const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = mockRestaurants
+  useEffect(() => {
+    getAllRestaurants().then(setAllRestaurants).finally(() => setLoading(false));
+  }, []);
+
+  const filtered = allRestaurants
     .filter((r) => selectedCity === 'All' || r.city === selectedCity)
     .sort((a, b) => {
       if (sortBy === 'Taste Match') return b.tasteMatchPercent - a.tasteMatchPercent;
@@ -68,6 +75,14 @@ export default function MapScreen() {
       if (sortBy === 'Check-ins') return b.verifiedCheckIns - a.verifiedCheckIns;
       return 0;
     });
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>

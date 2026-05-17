@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,14 @@ import {
   SafeAreaView,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
-import { mockRestaurants } from '../../data/mockRestaurants';
-import { mockCheckIns } from '../../data/mockCheckIns';
+import { Restaurant, CheckIn } from '../../types';
+import { getRestaurantById } from '../../src/services/restaurants';
+import { getCheckInsByRestaurantId } from '../../src/services/checkIns';
 import TagChip from '../../components/TagChip';
 import CheckInCard from '../../components/CheckInCard';
 
@@ -23,8 +25,24 @@ export default function RestaurantDetail() {
   const router = useRouter();
   const [saved, setSaved] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const restaurant = mockRestaurants.find((r) => r.id === id);
+  useEffect(() => {
+    Promise.all([getRestaurantById(id), getCheckInsByRestaurantId(id)])
+      .then(([r, c]) => { setRestaurant(r ?? null); setCheckIns(c); })
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
   if (!restaurant) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -37,8 +55,6 @@ export default function RestaurantDetail() {
       </SafeAreaView>
     );
   }
-
-  const restaurantCheckIns = mockCheckIns.filter((c) => c.restaurantId === id);
 
   const openMaps = () => {
     const url = `https://maps.apple.com/?q=${encodeURIComponent(restaurant.address)}`;
@@ -240,10 +256,10 @@ export default function RestaurantDetail() {
           {/* Check-in Feed */}
           <Text style={styles.sectionTitle}>From people who&apos;ve actually been</Text>
           <Text style={styles.checkInSub}>
-            {restaurantCheckIns.length} verified visit{restaurantCheckIns.length === 1 ? '' : 's'} · sorted by helpfulness
+            {checkIns.length} verified visit{checkIns.length === 1 ? '' : 's'} · sorted by helpfulness
           </Text>
-          {restaurantCheckIns.length > 0 ? (
-            [...restaurantCheckIns]
+          {checkIns.length > 0 ? (
+            [...checkIns]
               .sort((a, b) => b.helpful - a.helpful)
               .map((ci) => <CheckInCard key={ci.id} checkIn={ci} />)
           ) : (

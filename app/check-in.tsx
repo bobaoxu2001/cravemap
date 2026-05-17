@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,8 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
-import { mockRestaurants } from '../data/mockRestaurants';
 import { Restaurant } from '../types';
+import { getAllRestaurants } from '../src/services/restaurants';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
 
@@ -74,7 +74,11 @@ export default function CheckIn() {
   const [locationStatus, setLocationStatus] = useState<'idle' | 'verifying' | 'verified'>('idle');
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const sampleRestaurants = mockRestaurants.slice(0, 6);
+  const [sampleRestaurants, setSampleRestaurants] = useState<Restaurant[]>([]);
+
+  useEffect(() => {
+    getAllRestaurants().then((r) => setSampleRestaurants(r.slice(0, 6)));
+  }, []);
 
   const toggleTag = (arr: string[], setArr: (v: string[]) => void, val: string) => {
     setArr(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);

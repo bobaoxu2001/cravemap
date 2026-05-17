@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,14 @@ import {
   StyleSheet,
   SafeAreaView,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
-import { mockRestaurants } from '../../data/mockRestaurants';
-import { mockUser } from '../../data/mockUser';
+import { Restaurant, UserProfile } from '../../types';
+import { getAllRestaurants } from '../../src/services/restaurants';
+import { getCurrentProfile } from '../../src/services/profile';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
 import RestaurantCard from '../../components/RestaurantCard';
@@ -40,8 +42,8 @@ function getGreeting() {
   return 'Good evening';
 }
 
-function getRestaurantsForSection(key: string, city: string) {
-  let list = city ? mockRestaurants.filter((r) => r.city === city) : mockRestaurants;
+function getRestaurantsForSection(key: string, city: string, allRestaurants: Restaurant[]) {
+  let list = city ? allRestaurants.filter((r) => r.city === city) : allRestaurants;
   if (key === 'taste-match') {
     return [...list].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent).slice(0, 8);
   }
@@ -60,6 +62,23 @@ export default function Home() {
   const router = useRouter();
   const [selectedCity, setSelectedCity] = useState('New York City');
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([getAllRestaurants(), getCurrentProfile()])
+      .then(([r, p]) => { setRestaurants(r); setProfile(p); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -67,7 +86,7 @@ export default function Home() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.logoSm}>好吃GO</Text>
-          <Text style={styles.greeting}>{getGreeting()}, {mockUser.name.split(' ')[0]}</Text>
+          <Text style={styles.greeting}>{getGreeting()}, {profile?.name.split(' ')[0] ?? 'there'}</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -106,7 +125,7 @@ export default function Home() {
           activeOpacity={0.7}
         >
           <Text style={styles.personaChipText}>
-            🌶️ Spicy Adventurer · {mockUser.tastePreferences.length} cuisines saved
+            🌶️ Spicy Adventurer · {profile?.tastePreferences.length ?? 0} cuisines saved
           </Text>
         </TouchableOpacity>
 
@@ -140,7 +159,7 @@ export default function Home() {
 
         {/* Hero featured pick */}
         {(() => {
-          const cityList = mockRestaurants.filter((r) => r.city === selectedCity);
+          const cityList = restaurants.filter((r) => r.city === selectedCity);
           const featured = [...cityList].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent)[0];
           if (!featured) return null;
           return (
@@ -158,8 +177,8 @@ export default function Home() {
 
         {/* Sections */}
         {sections.map((sec) => {
-          const restaurants = getRestaurantsForSection(sec.key, selectedCity);
-          if (restaurants.length === 0) return null;
+          const sectionRestaurants = getRestaurantsForSection(sec.key, selectedCity, restaurants);
+          if (sectionRestaurants.length === 0) return null;
           return (
             <View key={sec.key} style={styles.section}>
               <SectionHeader
@@ -168,7 +187,7 @@ export default function Home() {
                 subtitle={sec.subtitle(selectedCity)}
                 onSeeAll={() => router.push('/map')}
               />
-              <HorizontalScroll restaurants={restaurants} />
+              <HorizontalScroll restaurants={sectionRestaurants} />
             </View>
           );
         })}

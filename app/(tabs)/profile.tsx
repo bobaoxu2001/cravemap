@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   Image,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
-import { mockUser } from '../../data/mockUser';
+import { UserProfile } from '../../types';
+import { getCurrentProfile } from '../../src/services/profile';
 import TagChip from '../../components/TagChip';
 
 const menuItems = [
@@ -23,6 +25,20 @@ const menuItems = [
 
 export default function Profile() {
   const router = useRouter();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCurrentProfile().then(setProfile).finally(() => setLoading(false));
+  }, []);
+
+  if (loading || !profile) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -37,27 +53,27 @@ export default function Profile() {
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <Image source={{ uri: mockUser.avatar }} style={styles.avatar} />
+          <Image source={{ uri: profile.avatar }} style={styles.avatar} />
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{mockUser.name}</Text>
+            <Text style={styles.profileName}>{profile.name}</Text>
             <View style={styles.cityRow}>
               <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
-              <Text style={styles.cityText}>{mockUser.city}</Text>
+              <Text style={styles.cityText}>{profile.city}</Text>
             </View>
           </View>
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Text style={styles.statNum}>{mockUser.checkInCount}</Text>
+              <Text style={styles.statNum}>{profile.checkInCount}</Text>
               <Text style={styles.statLabel}>Check-ins</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
-              <Text style={styles.statNum}>{mockUser.savedCount}</Text>
+              <Text style={styles.statNum}>{profile.savedCount}</Text>
               <Text style={styles.statLabel}>Saved</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
-              <Text style={styles.statNum}>{mockUser.badges.length}</Text>
+              <Text style={styles.statNum}>{profile.badges.length}</Text>
               <Text style={styles.statLabel}>Badges</Text>
             </View>
           </View>
@@ -75,7 +91,7 @@ export default function Profile() {
           <View style={styles.tasteSection}>
             <Text style={styles.tasteLabel}>Loves</Text>
             <View style={styles.tasteChips}>
-              {mockUser.tastePreferences.map((t) => (
+              {profile.tastePreferences.map((t) => (
                 <TagChip key={t} label={t} variant="primary" />
               ))}
             </View>
@@ -83,7 +99,7 @@ export default function Profile() {
           <View style={styles.tasteSection}>
             <Text style={styles.tasteLabel}>Avoids</Text>
             <View style={styles.tasteChips}>
-              {mockUser.dislikes.map((d) => (
+              {profile.dislikes.map((d) => (
                 <TagChip key={d} label={d} variant="neutral" />
               ))}
             </View>
@@ -91,7 +107,7 @@ export default function Profile() {
           <View style={styles.tasteSection}>
             <Text style={styles.tasteLabel}>Trusts</Text>
             <View style={styles.tasteChips}>
-              {mockUser.trustSources.map((s) => (
+              {profile.trustSources.map((s) => (
                 <TagChip key={s} label={s} variant="green" />
               ))}
             </View>
@@ -99,7 +115,7 @@ export default function Profile() {
           <View style={styles.tasteSection}>
             <Text style={styles.tasteLabel}>Food Scenes</Text>
             <View style={styles.tasteChips}>
-              {mockUser.foodScenes.map((s) => (
+              {profile.foodScenes.map((s) => (
                 <TagChip key={s} label={s} variant="yellow" />
               ))}
             </View>
@@ -109,7 +125,7 @@ export default function Profile() {
         {/* Badges */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🏅 Badges</Text>
-          {mockUser.badges.map((badge) => (
+          {profile.badges.map((badge) => (
             <View key={badge} style={styles.badgeItem}>
               <View style={styles.badgeIcon}>
                 <Text style={styles.badgeEmoji}>
