@@ -8,30 +8,41 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
+  Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { UserProfile } from '../../types';
 import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
+import { createInvite } from '../../src/services/invites';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 
-const menuItems = [
-  { icon: 'compass-outline', label: 'Edit Taste Passport', route: '/onboarding/taste-passport' },
-  { icon: 'checkmark-circle-outline', label: 'My Check-ins', route: null },
-  { icon: 'settings-outline', label: 'Settings', route: null },
-  { icon: 'help-circle-outline', label: 'Help & Support', route: null },
+const DEMO_USER_ID = 'u001';
+
+type MenuAction = 'invite' | null;
+
+const menuItems: Array<{ icon: string; label: string; route: string | null; action: MenuAction }> = [
+  { icon: 'compass-outline', label: 'Edit Taste Passport', route: '/onboarding/taste-passport', action: null },
+  { icon: 'checkmark-circle-outline', label: 'My Check-ins', route: '/my-check-ins', action: null },
+  { icon: 'people-outline', label: 'Invite Friends', route: null, action: 'invite' },
+  { icon: 'settings-outline', label: 'Settings', route: null, action: null },
+  { icon: 'help-circle-outline', label: 'Help & Support', route: null, action: null },
 ];
 
 export default function Profile() {
   const router = useRouter();
-  const { isSupabaseMode, profile: authProfile, signOut } = useAuth();
+  const { session, isSupabaseMode, profile: authProfile, signOut } = useAuth();
+  const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -79,6 +90,40 @@ export default function Profile() {
       </SafeAreaView>
     );
   }
+
+  const handleInvite = async () => {
+    if (isSupabaseMode && !userId) {
+      Alert.alert('Sign in required', 'Create an account to invite friends.');
+      return;
+    }
+    setInviting(true);
+    try {
+      const invite = await createInvite();
+      try {
+        await Share.share({
+          message: `Join me on CraveMap — the local food discovery app! Use my invite code: ${invite.code}`,
+          title: 'Join CraveMap',
+        });
+      } catch {
+        Alert.alert('Your invite code', invite.code, [{ text: 'OK' }]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not create invite. Please try again.';
+      Alert.alert('Invite error', message);
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleMenuPress = (item: typeof menuItems[number]) => {
+    if (item.action === 'invite') {
+      void handleInvite();
+      return;
+    }
+    if (item.route) {
+      router.push(item.route as any);
+    }
+  };
 
   const persona = profile.persona ?? getTastePersona(profile);
   const passportStatus = profile.tastePassportComplete ? 'Complete ✅' : 'Incomplete';
@@ -186,20 +231,31 @@ export default function Profile() {
 
         {/* Menu */}
         <View style={styles.section}>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.label}
-              style={styles.menuItem}
-              onPress={() => item.route && router.push(item.route as any)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuIconContainer}>
-                <Ionicons name={item.icon as any} size={20} color={Colors.primary} />
-              </View>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-            </TouchableOpacity>
-          ))}
+          {menuItems.map((item) => {
+            const isInviteItem = item.action === 'invite';
+            const isDisabled = isInviteItem && inviting;
+            return (
+              <TouchableOpacity
+                key={item.label}
+                style={styles.menuItem}
+                onPress={() => handleMenuPress(item)}
+                activeOpacity={0.7}
+                disabled={isDisabled}
+              >
+                <View style={styles.menuIconContainer}>
+                  <Ionicons name={item.icon as any} size={20} color={Colors.primary} />
+                </View>
+                <Text style={styles.menuLabel}>
+                  {isInviteItem && inviting ? 'Creating invite...' : item.label}
+                </Text>
+                {isInviteItem && inviting ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {loadError ? <Text style={styles.signOutError}>{loadError}</Text> : null}

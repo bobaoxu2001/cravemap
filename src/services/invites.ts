@@ -1,10 +1,44 @@
 // src/services/invites.ts
+import type { Invite, InviteStats } from './types';
 import { USE_SUPABASE } from './config';
 import * as mock from './invites.mock';
-// TODO(supabase commit 3+): import * as supabase from './invites.supabase';
+import * as supabase from './invites.supabase';
 
-const impl = USE_SUPABASE ? mock : mock; // swap to supabase in future commit
+async function withMockFallback<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+  try {
+    return await request();
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[CraveMap] Supabase invites request failed. Falling back to mock data.', error);
+    }
+    return fallback();
+  }
+}
 
-export const createInvite = impl.createInvite;
-export const getInviteStats = impl.getInviteStats;
-export const getMyInvites = impl.getMyInvites;
+export function createInvite(inviteeEmail?: string): Promise<Invite> {
+  if (!USE_SUPABASE) {
+    return mock.createInvite(inviteeEmail);
+  }
+  // Write — do not fall back silently; let caller handle error.
+  return supabase.createInvite(inviteeEmail);
+}
+
+export function getInviteStats(userId: string): Promise<InviteStats> {
+  if (!USE_SUPABASE) {
+    return mock.getInviteStats(userId);
+  }
+  return withMockFallback(
+    () => supabase.getInviteStats(userId),
+    () => mock.getInviteStats(userId)
+  );
+}
+
+export function getMyInvites(userId: string): Promise<Invite[]> {
+  if (!USE_SUPABASE) {
+    return mock.getMyInvites(userId);
+  }
+  return withMockFallback(
+    () => supabase.getMyInvites(userId),
+    () => mock.getMyInvites(userId)
+  );
+}
