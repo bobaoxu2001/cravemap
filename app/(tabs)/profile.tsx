@@ -19,6 +19,7 @@ import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
 import { createInvite } from '../../src/services/invites';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
+import Mascot from '../../components/Mascot';
 
 const DEMO_USER_ID = 'u001';
 
@@ -176,6 +177,7 @@ export default function Profile() {
             </View>
           </View>
           <View style={styles.personaRow}>
+            <Mascot persona={persona} size={48} />
             <Ionicons name="sparkles-outline" size={15} color={Colors.primary} />
             <Text style={styles.personaText}>{persona}</Text>
           </View>

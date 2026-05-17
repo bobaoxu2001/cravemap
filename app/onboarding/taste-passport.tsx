@@ -12,6 +12,7 @@ import { Redirect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import ProgressBar from '../../components/ProgressBar';
+import Mascot from '../../components/Mascot';
 import { useAuth } from '../../src/hooks/useAuth';
 import { completeTastePassport } from '../../src/services/profile';
 import type { UpdateTastePassportInput } from '../../src/services/types';
@@ -243,7 +244,7 @@ export default function TastePassport() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.resultContainer}>
-          <Text style={styles.resultEmoji}>{persona.emoji}</Text>
+          <Mascot persona={persona.name} size={180} style={styles.resultMascot} />
           <Text style={styles.resultPersona}>{persona.name}</Text>
           <Text style={styles.resultText}>
             Your Taste Passport is ready. We&apos;ll match you with restaurants 247 other {persona.name}s love.
@@ -447,8 +448,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     gap: Spacing.md,
   },
-  resultEmoji: {
-    fontSize: 96,
+  resultMascot: {
+    marginBottom: Spacing.sm,
   },
   resultPersona: {
     ...Typography.h1,

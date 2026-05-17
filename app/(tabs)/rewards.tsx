@@ -13,8 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { FoundingScoutProgress, RewardTask } from '../../src/services/types';
 import { getFoundingScoutProgress, getRewardTasks } from '../../src/services/rewards';
+import { getTastePersona } from '../../src/services/profile';
 import { useAuth } from '../../src/hooks/useAuth';
 import ProgressBar from '../../components/ProgressBar';
+import Mascot from '../../components/Mascot';
 
 const DEMO_USER_ID = 'u001';
 
@@ -44,7 +46,8 @@ const rewards = [
 
 export default function Rewards() {
   const router = useRouter();
-  const { session, isSupabaseMode } = useAuth();
+  const { session, isSupabaseMode, profile: authProfile } = useAuth();
+  const persona = authProfile ? getTastePersona(authProfile) : 'Authentic Explorer';
   const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
 
   const [progress, setProgress] = useState<FoundingScoutProgress | null>(null);
@@ -190,7 +193,7 @@ export default function Rewards() {
 
           {/* Mascot hero reward */}
           <View style={styles.mascotCard}>
-            <Text style={styles.mascotEmoji}>🍡</Text>
+            <Mascot persona={persona} size={120} style={styles.mascotImage} />
             <Text style={styles.mascotTitle}>The 好吃GO Dango Mascot Plush</Text>
             <Text style={styles.mascotDesc}>
               Limited edition. Only 50 plushies will exist. Founding Food Scouts get lottery entry — no purchase needed.
@@ -329,8 +332,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.sm,
   },
-  mascotEmoji: {
-    fontSize: 56,
+  mascotImage: {
     marginBottom: Spacing.sm,
   },
   mascotTitle: {
