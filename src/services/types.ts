@@ -61,6 +61,41 @@ export interface ProfileRow {
   updated_at?: string | null;
 }
 
+// Restaurants
+export interface RestaurantRow {
+  id: string;
+  slug: string;
+  name: string;
+  city: string;
+  neighborhood: string;
+  cuisine: string;
+  price: '$' | '$$' | '$$$' | '$$$$';
+  description: string | null;
+  recommendation_reason: string | null;
+  address: string;
+  hours: string | null;
+  phone: string | null;
+  website: string | null;
+  images: string[] | null;
+  latitude: number | string;
+  longitude: number | string;
+  tags: string[] | null;
+  categories: string[] | null;
+  best_for: string[] | null;
+  avoid_if: string[] | null;
+  is_open: boolean | null;
+  wait_time: string | null;
+  insider_tip: string | null;
+  what_locals_order: string[] | null;
+  best_time_to_go: string | null;
+  trending_signal: 'trending' | 'rising' | 'underrated' | 'classic' | null;
+  verified_check_ins: number | null;
+  local_approved_percent: number | null;
+  recent_visits: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 // Rewards
 export interface FoundingScoutProgress {
   tastePassport: boolean;

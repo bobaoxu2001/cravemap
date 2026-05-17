@@ -22,10 +22,15 @@ You will see `[CraveMap] Running in MOCK mode` in the console.
    EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
    ```
-4. Apply the schema in **Dashboard → SQL Editor**:
+4. Apply the Supabase SQL files in **Dashboard → SQL Editor**, in this order:
    - Run `supabase/schema.sql`
    - Run `supabase/storage.sql`
-   - (Seed data is not required yet — coming in a future commit.)
+   - Run `supabase/seed.sql`
 5. Restart Expo. The console will no longer log mock mode.
+
+Restaurant reads are the first Supabase-backed content feature. Auth, profiles,
+and Taste Passport persistence use Supabase when env vars are configured;
+restaurants then load from `public.restaurants`. Without Supabase env vars, the
+app still runs fully in mock mode with the local mock data.
 
 > ⚠️ **Never commit `.env` to git.** It is already in `.gitignore`.

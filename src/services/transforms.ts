@@ -1,6 +1,6 @@
 // src/services/transforms.ts
-import type { UserProfile } from '../../types';
-import type { ProfileRow } from './types';
+import type { Restaurant, UserProfile } from '../../types';
+import type { ProfileRow, RestaurantRow } from './types';
 
 const FALLBACK_AVATAR = 'https://picsum.photos/seed/cravemap_user/200/200';
 
@@ -29,5 +29,55 @@ export function profileFromRow(row: ProfileRow): UserProfile {
       verifiedCheckIn: false,
       twoInvites: (row.invite_count ?? 0) >= 2,
     },
+  };
+}
+
+function toNumber(value: number | string | null | undefined): number {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function optionalString(value: string | null | undefined): string | undefined {
+  return value?.trim() || undefined;
+}
+
+export function restaurantFromRow(row: RestaurantRow): Restaurant {
+  const localApprovedPercent = row.local_approved_percent ?? 0;
+  return {
+    id: row.id,
+    name: row.name,
+    city: row.city,
+    neighborhood: row.neighborhood,
+    cuisine: row.cuisine,
+    price: row.price,
+    tasteMatchPercent: Math.min(localApprovedPercent + 3, 99),
+    localApprovedPercent,
+    verifiedCheckIns: row.verified_check_ins ?? 0,
+    tags: row.tags ?? [],
+    recommendationReason: row.recommendation_reason ?? '',
+    description: row.description ?? '',
+    address: row.address,
+    hours: row.hours ?? '',
+    phone: optionalString(row.phone),
+    website: optionalString(row.website),
+    images: row.images ?? [],
+    latitude: toNumber(row.latitude),
+    longitude: toNumber(row.longitude),
+    bestFor: row.best_for ?? [],
+    avoidIf: row.avoid_if ?? [],
+    categories: row.categories ?? [],
+    isOpen: row.is_open ?? true,
+    waitTime: optionalString(row.wait_time),
+    insiderTip: optionalString(row.insider_tip),
+    whatLocalsOrder: row.what_locals_order ?? [],
+    bestTimeToGo: optionalString(row.best_time_to_go),
+    trendingSignal: row.trending_signal ?? undefined,
+    recentVisits: row.recent_visits ?? 0,
   };
 }
