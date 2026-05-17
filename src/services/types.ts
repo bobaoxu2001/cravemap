@@ -26,6 +26,41 @@ export interface UpdateTastePassportInput {
   foodScenes?: string[];
 }
 
+export interface UpsertProfileInput {
+  id: string;
+  name?: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  city?: string | null;
+  trustSources?: string[];
+  tastePreferences?: string[];
+  dislikes?: string[];
+  dietNeeds?: string[];
+  foodScenes?: string[];
+  persona?: string | null;
+  tastePassportComplete?: boolean;
+}
+
+export interface ProfileRow {
+  id: string;
+  name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  city: string | null;
+  trust_sources: string[] | null;
+  taste_preferences: string[] | null;
+  dislikes: string[] | null;
+  diet_needs: string[] | null;
+  food_scenes: string[] | null;
+  taste_passport_complete: boolean | null;
+  persona: string | null;
+  check_in_count: number | null;
+  saved_count: number | null;
+  invite_count: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 // Rewards
 export interface FoundingScoutProgress {
   tastePassport: boolean;

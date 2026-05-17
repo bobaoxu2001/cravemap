@@ -74,6 +74,7 @@ function toUserProfile(user: SupabaseUser | null): UserProfile | null {
     checkInCount: 0,
     savedCount: 0,
     badges: [],
+    persona: undefined,
     tastePassportComplete: false,
     foundingScoutProgress: {
       tastePassport: false,

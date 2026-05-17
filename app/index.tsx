@@ -4,9 +4,15 @@ import { Colors } from '../constants/theme';
 import { useAuth } from '../src/hooks/useAuth';
 
 export default function Index() {
-  const { loading, isAuthenticated, isSupabaseMode } = useAuth();
+  const {
+    loading,
+    profileLoading,
+    isAuthenticated,
+    isProfileComplete,
+    isSupabaseMode,
+  } = useAuth();
 
-  if (loading) {
+  if (loading || (isSupabaseMode && isAuthenticated && profileLoading)) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: Colors.secondary }}>
         <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
@@ -15,6 +21,9 @@ export default function Index() {
   }
 
   if (isSupabaseMode && isAuthenticated) {
+    if (!isProfileComplete) {
+      return <Redirect href="/onboarding/taste-passport" />;
+    }
     return <Redirect href="/(tabs)/home" />;
   }
 

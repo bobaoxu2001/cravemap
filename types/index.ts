@@ -67,6 +67,7 @@ export interface UserProfile {
   checkInCount: number;
   savedCount: number;
   badges: string[];
+  persona?: string;
   tastePassportComplete: boolean;
   foundingScoutProgress: {
     tastePassport: boolean;

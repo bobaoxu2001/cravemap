@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { UserProfile } from '../../types';
-import { getCurrentProfile } from '../../src/services/profile';
+import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 
@@ -26,23 +26,62 @@ const menuItems = [
 
 export default function Profile() {
   const router = useRouter();
-  const { isSupabaseMode, signOut } = useAuth();
+  const { isSupabaseMode, profile: authProfile, signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
 
   useEffect(() => {
-    getCurrentProfile().then(setProfile).finally(() => setLoading(false));
-  }, []);
+    let mounted = true;
+    setLoading(true);
+    getCurrentProfile()
+      .then((nextProfile) => {
+        if (mounted) {
+          setProfile(nextProfile ?? authProfile);
+          setLoadError('');
+        }
+      })
+      .catch((err) => {
+        if (mounted) {
+          setProfile(authProfile);
+          setLoadError(err instanceof Error ? err.message : 'Could not load profile.');
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [authProfile]);
 
-  if (loading || !profile) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
         <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
       </SafeAreaView>
     );
   }
+
+  if (!profile) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.emptyProfile}>
+          <Text style={styles.emptyTitle}>Profile not ready yet</Text>
+          <TouchableOpacity style={styles.signOutButton} onPress={() => router.replace('/onboarding/taste-passport')}>
+            <Text style={styles.signOutText}>Finish Taste Passport</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const persona = profile.persona ?? getTastePersona(profile);
+  const passportStatus = profile.tastePassportComplete ? 'Complete ✅' : 'Incomplete';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -88,8 +127,12 @@ export default function Profile() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>🛂 Taste Passport</Text>
             <View style={styles.completeBadge}>
-              <Text style={styles.completeBadgeText}>Complete ✅</Text>
+              <Text style={styles.completeBadgeText}>{passportStatus}</Text>
             </View>
+          </View>
+          <View style={styles.personaRow}>
+            <Ionicons name="sparkles-outline" size={15} color={Colors.primary} />
+            <Text style={styles.personaText}>{persona}</Text>
           </View>
 
           <View style={styles.tasteSection}>
@@ -158,6 +201,8 @@ export default function Profile() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {loadError ? <Text style={styles.signOutError}>{loadError}</Text> : null}
 
         {isSupabaseMode && (
           <TouchableOpacity
@@ -390,6 +435,33 @@ const styles = StyleSheet.create({
     color: Colors.error,
     textAlign: 'center',
     marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  personaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    alignSelf: 'flex-start',
+    marginBottom: Spacing.md,
+  },
+  personaText: {
+    ...Typography.label,
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  emptyProfile: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  emptyTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+    textAlign: 'center',
     marginBottom: Spacing.md,
   },
 });

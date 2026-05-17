@@ -11,9 +11,15 @@ function TabIcon({ name, color, focused }: { name: IoniconName; color: string; f
 }
 
 export default function TabLayout() {
-  const { loading, isAuthenticated, isSupabaseMode } = useAuth();
+  const {
+    loading,
+    profileLoading,
+    isAuthenticated,
+    isProfileComplete,
+    isSupabaseMode,
+  } = useAuth();
 
-  if (loading) {
+  if (loading || (isSupabaseMode && isAuthenticated && profileLoading)) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
         <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
@@ -23,6 +29,10 @@ export default function TabLayout() {
 
   if (isSupabaseMode && !isAuthenticated) {
     return <Redirect href="/onboarding/welcome" />;
+  }
+
+  if (isSupabaseMode && !isProfileComplete) {
+    return <Redirect href="/onboarding/taste-passport" />;
   }
 
   return (

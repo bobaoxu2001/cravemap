@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import ProgressBar from '../../components/ProgressBar';
 import { useAuth } from '../../src/hooks/useAuth';
+import { completeTastePassport } from '../../src/services/profile';
+import type { UpdateTastePassportInput } from '../../src/services/types';
 
 const TOTAL_STEPS = 6;
 
@@ -123,9 +125,11 @@ function CityGrid({ selected, onSelect }: { selected: string; onSelect: (id: str
 
 export default function TastePassport() {
   const router = useRouter();
-  const { isAuthenticated, isSupabaseMode, loading } = useAuth();
+  const { isAuthenticated, isSupabaseMode, loading, refreshProfile, session } = useAuth();
   const [step, setStep] = useState(1);
   const [showResult, setShowResult] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [data, setData] = useState<StepData>({
     city: '',
     trust: [],
@@ -152,14 +156,50 @@ export default function TastePassport() {
     return true;
   };
 
-  const handleNext = () => {
-    if (step < TOTAL_STEPS) {
-      setStep(step + 1);
-    } else {
+  const toTastePassportInput = (): UpdateTastePassportInput => ({
+    city: data.city,
+    trustSources: data.trust,
+    tastePreferences: data.taste,
+    dislikes: data.dislikes,
+    dietNeeds: data.diet.filter((d) => d !== 'None'),
+    foodScenes: data.scenes,
+  });
+
+  const finishTastePassport = async () => {
+    setSaveError('');
+    if (!isSupabaseMode) {
       setShowResult(true);
       setTimeout(() => {
         router.replace('/(tabs)/home');
       }, 2000);
+      return;
+    }
+
+    if (!session) {
+      setSaveError('Please sign in before saving your Taste Passport.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await completeTastePassport(session.userId, toTastePassportInput());
+      await refreshProfile();
+      setShowResult(true);
+      setTimeout(() => {
+        router.replace('/(tabs)/home');
+      }, 1200);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save your Taste Passport.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (step < TOTAL_STEPS) {
+      setStep(step + 1);
+    } else {
+      void finishTastePassport();
     }
   };
 
@@ -265,14 +305,15 @@ export default function TastePassport() {
             style={[styles.nextButton, !canAdvance() && styles.nextButtonDisabled]}
             onPress={handleNext}
             activeOpacity={0.85}
-            disabled={!canAdvance()}
+            disabled={!canAdvance() || saving}
           >
             <Text style={styles.nextButtonText}>
-              {step === TOTAL_STEPS ? 'See My Recommendations 🍽️' : 'Next →'}
+              {saving ? 'Saving...' : step === TOTAL_STEPS ? 'See My Recommendations 🍽️' : 'Next →'}
             </Text>
           </TouchableOpacity>
+          {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
           {step < TOTAL_STEPS && step >= 4 && (
-            <TouchableOpacity onPress={handleNext} style={styles.skipBtn}>
+            <TouchableOpacity onPress={handleNext} style={styles.skipBtn} disabled={saving}>
               <Text style={styles.skipText}>Skip for now</Text>
             </TouchableOpacity>
           )}
@@ -459,5 +500,11 @@ const styles = StyleSheet.create({
   skipText: {
     ...Typography.body,
     color: Colors.textMuted,
+  },
+  errorText: {
+    ...Typography.caption,
+    color: Colors.error,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

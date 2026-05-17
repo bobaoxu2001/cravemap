@@ -32,7 +32,15 @@ const features = [
 
 export default function Welcome() {
   const router = useRouter();
-  const { isAuthenticated, isSupabaseMode, loading, signIn, signUp } = useAuth();
+  const {
+    isAuthenticated,
+    isProfileComplete,
+    isSupabaseMode,
+    loading,
+    profileLoading,
+    signIn,
+    signUp,
+  } = useAuth();
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,10 +50,10 @@ export default function Welcome() {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    if (isSupabaseMode && isAuthenticated) {
-      router.replace('/(tabs)/home');
+    if (isSupabaseMode && isAuthenticated && !profileLoading) {
+      router.replace(isProfileComplete ? '/(tabs)/home' : '/onboarding/taste-passport');
     }
-  }, [isAuthenticated, isSupabaseMode, router]);
+  }, [isAuthenticated, isProfileComplete, isSupabaseMode, profileLoading, router]);
 
   const handleAuthSubmit = async () => {
     const trimmedEmail = email.trim();
