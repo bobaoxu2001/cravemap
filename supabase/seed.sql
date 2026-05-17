@@ -1,0 +1,15 @@
+-- ============================================================================
+-- CraveMap / 好吃GO — Seed Data
+-- ============================================================================
+-- Placeholder file.
+--
+-- The mock restaurant data in data/mockRestaurants.ts (32 records) will be
+-- converted into INSERT statements in a future commit, alongside the migration
+-- of the Restaurants screen to read from Supabase (see roadmap commit 6).
+--
+-- For now, the app reads restaurants from mock data and does not require this
+-- file to be applied. Keep this file in sync with the production seed when
+-- ready to migrate.
+-- ============================================================================
+
+-- TODO (commit 6): generate insert statements from data/mockRestaurants.ts.

@@ -44,3 +44,7 @@ yarn-error.*
 
 # design assets (kept local)
 archetypes/
+
+# Supabase local
+supabase/.branches
+supabase/.temp
