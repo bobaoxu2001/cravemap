@@ -130,6 +130,51 @@ export default function RestaurantDetail() {
           {/* Description */}
           <Text style={styles.description}>{restaurant.description}</Text>
 
+          {(restaurant.insiderTip || (restaurant.whatLocalsOrder && restaurant.whatLocalsOrder.length > 0) || restaurant.bestTimeToGo) && (
+            <>
+              <View style={styles.divider} />
+              <Text style={styles.sectionTitle}>Local intel</Text>
+
+              {restaurant.insiderTip && (
+                <View style={styles.tipCard}>
+                  <View style={styles.tipHeader}>
+                    <Ionicons name="bulb" size={16} color="#B8860B" />
+                    <Text style={styles.tipLabel}>Insider tip</Text>
+                  </View>
+                  <Text style={styles.tipBody}>{restaurant.insiderTip}</Text>
+                </View>
+              )}
+
+              {restaurant.whatLocalsOrder && restaurant.whatLocalsOrder.length > 0 && (
+                <View style={styles.localsBlock}>
+                  <Text style={styles.localsHeader}>🍜 What locals order</Text>
+                  <Text style={styles.localsSub}>Most-ordered by people who live nearby</Text>
+                  {restaurant.whatLocalsOrder.map((item, idx) => (
+                    <View key={item} style={styles.localsRow}>
+                      <Text style={styles.localsNum}>{idx + 1}.</Text>
+                      <Text style={styles.localsItem}>{item}</Text>
+                      {idx === 0 && (
+                        <View style={styles.mustTry}>
+                          <Text style={styles.mustTryText}>must-try</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {restaurant.bestTimeToGo && (
+                <View style={styles.bestTimeCard}>
+                  <View style={styles.bestTimeHeader}>
+                    <View style={styles.greenDot} />
+                    <Text style={styles.bestTimeLabel}>⏰ Best time to go · pro tip</Text>
+                  </View>
+                  <Text style={styles.bestTimeBody}>{restaurant.bestTimeToGo}</Text>
+                </View>
+              )}
+            </>
+          )}
+
           <View style={styles.divider} />
 
           {/* Tags */}
@@ -519,6 +564,108 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     flex: 1,
     lineHeight: 22,
+  },
+  tipCard: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm + 2,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: '#B8860B',
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  tipLabel: {
+    ...Typography.label,
+    color: '#B8860B',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  tipBody: {
+    ...Typography.body,
+    color: Colors.text,
+    lineHeight: 20,
+  },
+  localsBlock: {
+    marginBottom: Spacing.sm,
+  },
+  localsHeader: {
+    ...Typography.label,
+    color: Colors.text,
+    fontWeight: '700',
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  localsSub: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  localsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: 6,
+  },
+  localsNum: {
+    ...Typography.body,
+    color: Colors.textMuted,
+    fontWeight: '700',
+    width: 18,
+  },
+  localsItem: {
+    ...Typography.body,
+    color: Colors.text,
+    flex: 1,
+  },
+  mustTry: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  mustTryText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  bestTimeCard: {
+    backgroundColor: '#E8F5EE',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm + 2,
+    marginBottom: Spacing.sm,
+  },
+  bestTimeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  greenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.green,
+  },
+  bestTimeLabel: {
+    ...Typography.label,
+    color: Colors.green,
+    fontWeight: '700',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bestTimeBody: {
+    ...Typography.body,
+    color: Colors.text,
+    lineHeight: 20,
   },
   noCheckIns: {
     alignItems: 'center',

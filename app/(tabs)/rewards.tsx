@@ -86,7 +86,7 @@ export default function Rewards() {
         <View style={styles.whyCard}>
           <Text style={styles.whyTitle}>Why this matters</Text>
           <Text style={styles.whyText}>
-            Real reviews need real people. The first 1,000 scouts shape what CraveMap becomes — your check-ins train the taste-match model, your picks define the local-approved feed.
+            Hey — I built CraveMap because every food app started feeling the same: same 10 viral spots, same staged photos, same lukewarm "must-try" lists. The first 1,000 scouts get to flip that. Your check-ins literally train the model. Your picks become the local-approved feed. You\'re not a user — you\'re a co-author. Thanks for being early.
           </Text>
         </View>
 

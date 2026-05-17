@@ -34,8 +34,8 @@ export default function Saved() {
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🔖</Text>
-          <Text style={styles.emptyTitle}>No saved restaurants yet</Text>
-          <Text style={styles.emptyDesc}>Start exploring and save places you want to try!</Text>
+          <Text style={styles.emptyTitle}>Nothing saved yet. Start collecting your hit list.</Text>
+          <Text style={styles.emptyDesc}>Tap the bookmark on any spot that catches your eye — your future self will thank you.</Text>
           <TouchableOpacity
             style={styles.exploreBtn}
             onPress={() => router.push('/(tabs)/home')}

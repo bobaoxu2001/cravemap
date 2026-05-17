@@ -63,6 +63,26 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
         <View style={styles.reasonPill}>
           <Text style={styles.reason} numberOfLines={2}>💡 {restaurant.recommendationReason}</Text>
         </View>
+
+        {(() => {
+          const signal = restaurant.trendingSignal;
+          if (signal === 'trending') {
+            return <Text style={[styles.socialSignal, { color: '#E8450A' }]}>🔥 Trending</Text>;
+          }
+          if (signal === 'rising') {
+            return <Text style={[styles.socialSignal, { color: '#FF8A00' }]}>📈 Rising</Text>;
+          }
+          if (signal === 'underrated') {
+            return <Text style={[styles.socialSignal, { color: Colors.green }]}>💎 Underrated</Text>;
+          }
+          if (signal === 'classic') {
+            return <Text style={[styles.socialSignal, { color: '#B8860B' }]}>⭐ Classic</Text>;
+          }
+          if (restaurant.friendsSaved && restaurant.friendsSaved > 0) {
+            return <Text style={[styles.socialSignal, { color: Colors.textMuted }]}>👥 {restaurant.friendsSaved} saved this</Text>;
+          }
+          return null;
+        })()}
       </View>
     </TouchableOpacity>
   );
@@ -210,5 +230,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.text,
     lineHeight: 17,
+  },
+  socialSignal: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 6,
+    letterSpacing: 0.2,
   },
 });

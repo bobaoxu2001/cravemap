@@ -33,11 +33,26 @@ export default function CheckInCard({ checkIn }: CheckInCardProps) {
           <Text style={[styles.contextText, checkIn.locationVerified && styles.contextTextVerified]}>
             {checkIn.locationVerified ? 'Verified visit · Local' : 'Verified by review'}
           </Text>
+          {checkIn.userBio && (
+            <Text style={styles.userBio} numberOfLines={1}>{checkIn.userBio}</Text>
+          )}
           <Text style={styles.date}>{checkIn.date}</Text>
         </View>
-        <View style={[styles.hypePill, { backgroundColor: hype.bg }]}>
-          <Text style={styles.hypeEmoji}>{hype.emoji}</Text>
-          <Text style={[styles.hypeLabel, { color: hype.color }]}>{hype.label}</Text>
+        <View style={styles.hypeColumn}>
+          <View style={[styles.hypePill, { backgroundColor: hype.bg }]}>
+            <Text style={styles.hypeEmoji}>{hype.emoji}</Text>
+            <Text style={[styles.hypeLabel, { color: hype.color }]}>{hype.label}</Text>
+          </View>
+          {checkIn.wouldReturn === true && (
+            <View style={styles.returnPill}>
+              <Text style={styles.returnPillText}>Would return</Text>
+            </View>
+          )}
+          {checkIn.wouldReturn === false && (
+            <View style={styles.noReturnPill}>
+              <Text style={styles.noReturnPillText}>Not coming back</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -46,8 +61,15 @@ export default function CheckInCard({ checkIn }: CheckInCardProps) {
       )}
 
       <View style={styles.reviewBlock}>
-        <Text style={styles.review} numberOfLines={4}>{checkIn.review}</Text>
+        <Text style={styles.review} numberOfLines={5}>{checkIn.review}</Text>
       </View>
+
+      {checkIn.orderedItems && checkIn.orderedItems.length > 0 && (
+        <Text style={styles.orderedLine} numberOfLines={2}>
+          <Text style={styles.orderedPrefix}>Ordered: </Text>
+          {checkIn.orderedItems.join(', ')}
+        </Text>
+      )}
 
       <View style={styles.tagsRow}>
         {checkIn.tasteTags.slice(0, 3).map((tag) => (
@@ -188,5 +210,48 @@ const styles = StyleSheet.create({
   helpfulCount: {
     ...Typography.caption,
     color: Colors.textMuted,
+  },
+  userBio: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 2,
+    marginBottom: 1,
+  },
+  hypeColumn: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  returnPill: {
+    backgroundColor: '#E8F5EE',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  returnPillText: {
+    fontSize: 10,
+    color: Colors.green,
+    fontWeight: '700',
+  },
+  noReturnPill: {
+    backgroundColor: '#F0F0F0',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  noReturnPillText: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    fontWeight: '700',
+  },
+  orderedLine: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+    lineHeight: 17,
+  },
+  orderedPrefix: {
+    fontWeight: '700',
+    color: Colors.text,
   },
 });

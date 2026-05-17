@@ -89,7 +89,7 @@ export default function Welcome() {
             <Text style={styles.primaryButtonText}>Build My Taste Passport →</Text>
           </TouchableOpacity>
           <Text style={styles.socialProof}>
-            Joining 847 Founding Food Scouts across NYC, LA, Bay Area, Seattle, Boston
+            847 Founding Food Scouts already in. 153 spots left.
           </Text>
 
           <TouchableOpacity

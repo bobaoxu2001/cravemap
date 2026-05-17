@@ -20,14 +20,16 @@ import RestaurantCard from '../../components/RestaurantCard';
 const CITIES = ['New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
 
 const sections = [
-  { key: 'local-approved', emoji: '🏘️', title: 'Local-approved', subtitle: (city: string) => `What people in ${city} order on repeat` },
-  { key: 'taste-match', emoji: '👤', title: 'People with your taste', subtitle: () => '94%+ match with your Taste Passport' },
-  { key: 'actually-spicy', emoji: '🌶️', title: 'Actually spicy', subtitle: () => 'Verified by spice-tolerant scouts, not menu disclaimers' },
-  { key: 'anti-hype', emoji: '🚫', title: 'Not TikTok hype', subtitle: () => "Worth-it picks the algorithms don't push" },
-  { key: 'culture-approved', emoji: '🍜', title: 'Culture-approved', subtitle: () => "Validated by people from the cuisine's home culture" },
+  { key: 'trending-week', emoji: '🔥', title: 'Trending this week', subtitle: (city: string) => `What people in ${city} are talking about right now` },
+  { key: 'local-approved', emoji: '🏘️', title: 'Local-approved', subtitle: () => 'What your neighbors actually eat — not what tourists post' },
+  { key: 'taste-match', emoji: '👤', title: 'People with your taste', subtitle: () => '247 Spicy Adventurers in NYC saved these this month' },
+  { key: 'actually-spicy', emoji: '🌶️', title: 'Actually spicy', subtitle: () => 'Cleared by scouts with verified spice tolerance' },
+  { key: 'hidden-by-algo', emoji: '🫥', title: 'Hidden by the algorithm', subtitle: () => "Locals know. Algorithms don't. Yet." },
+  { key: 'anti-hype', emoji: '🤫', title: 'Worth-it picks', subtitle: () => 'Quietly excellent. No viral video required.' },
+  { key: 'culture-approved', emoji: '🍜', title: 'Culture-approved', subtitle: () => 'Validated by people from where the food is from' },
   { key: 'diet-approved', emoji: '🥗', title: 'Diet-approved', subtitle: () => 'Matches your dietary preferences' },
-  { key: 'late-night', emoji: '🌙', title: 'Late-night eats', subtitle: () => 'Open past 10pm, recommended by night-owls' },
-  { key: 'student-favorites', emoji: '📚', title: 'Student favorites', subtitle: () => 'Cheap, generous, no fuss' },
+  { key: 'late-night', emoji: '🌙', title: 'Late-night eats', subtitle: () => 'Open past 10. The night-shift crew approves.' },
+  { key: 'student-favorites', emoji: '📚', title: 'Student favorites', subtitle: () => '$10 fills you up. The graduate student diet.' },
   { key: 'hidden-gems', emoji: '💎', title: 'Hidden gems', subtitle: () => '<500 check-ins, but the right 500' },
 ];
 
@@ -42,6 +44,14 @@ function getRestaurantsForSection(key: string, city: string) {
   let list = city ? mockRestaurants.filter((r) => r.city === city) : mockRestaurants;
   if (key === 'taste-match') {
     return [...list].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent).slice(0, 8);
+  }
+  if (key === 'trending-week') {
+    return list.filter((r) => r.trendingSignal === 'trending' || r.trendingSignal === 'rising').slice(0, 8);
+  }
+  if (key === 'hidden-by-algo') {
+    return list
+      .filter((r) => r.trendingSignal === 'underrated' || r.verifiedCheckIns < 600)
+      .slice(0, 8);
   }
   return list.filter((r) => r.categories.includes(key)).slice(0, 8);
 }
@@ -136,7 +146,9 @@ export default function Home() {
           return (
             <View style={styles.heroSection}>
               <Text style={styles.heroTitle}>🎯 Today&apos;s Pick for You</Text>
-              <Text style={styles.heroSub}>Based on your taste for spicy and savory, you&apos;ll love this.</Text>
+              <Text style={styles.heroSub}>
+                {featured.tasteMatchPercent}% of Spicy Adventurers in {selectedCity.split(' ')[0]} who tried {featured.cuisine.split(' - ')[0].toLowerCase()} this month said this was worth it.
+              </Text>
               <View style={styles.heroCardWrap}>
                 <RestaurantCard restaurant={featured} />
               </View>

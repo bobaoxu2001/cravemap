@@ -23,6 +23,13 @@ export interface Restaurant {
   categories: string[];
   isOpen: boolean;
   waitTime?: string;
+  // Insider intel (optional)
+  insiderTip?: string;
+  whatLocalsOrder?: string[];
+  bestTimeToGo?: string;
+  trendingSignal?: 'trending' | 'rising' | 'underrated' | 'classic';
+  friendsSaved?: number;
+  recentVisits?: number; // visits in the last 7 days
 }
 
 export interface CheckIn {
@@ -41,6 +48,10 @@ export interface CheckIn {
   hypeRating: 'worth_it' | 'overhyped' | 'not_sure';
   locationVerified: boolean;
   helpful: number;
+  // Personality (optional)
+  userBio?: string; // "Sichuan native · spice tolerance 10/10"
+  orderedItems?: string[];
+  wouldReturn?: boolean;
 }
 
 export interface UserProfile {

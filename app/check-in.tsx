@@ -332,9 +332,9 @@ export default function CheckIn() {
         <View style={styles.successOverlay}>
           <View style={styles.successCard}>
             <Text style={styles.successEmoji}>🎉</Text>
-            <Text style={styles.successTitle}>Check-in Posted!</Text>
+            <Text style={styles.successTitle}>You&apos;re shaping the map.</Text>
             <Text style={styles.successSub}>
-              Your review of {selectedRestaurant?.name} is live.
+              Your take on {selectedRestaurant?.name} just hit the local-approved feed.
             </Text>
             <View style={styles.pointsRow}>
               <Text style={styles.pointsEarned}>+200 points earned</Text>
