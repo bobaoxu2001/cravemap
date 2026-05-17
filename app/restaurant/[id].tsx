@@ -316,7 +316,7 @@ export default function RestaurantDetail() {
               .map((ci) => <CheckInCard key={ci.id} checkIn={ci} />)
           ) : (
             <View style={styles.noCheckIns}>
-              <Text style={styles.noCheckInsText}>Be the first to check in here!</Text>
+              <Text style={styles.noCheckInsText}>No check-ins yet. Be the first to shape this spot.</Text>
             </View>
           )}
 

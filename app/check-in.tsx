@@ -10,14 +10,19 @@ import {
   Image,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { Restaurant } from '../types';
 import { getAllRestaurants } from '../src/services/restaurants';
+import { createCheckIn } from '../src/services/checkIns';
+import { useAuth } from '../src/hooks/useAuth';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
+
+const DEMO_USER_ID = 'u001';
 
 const TOTAL_STEPS = 5;
 
@@ -64,6 +69,9 @@ function MultiChips({
 
 export default function CheckIn() {
   const router = useRouter();
+  const { session, isSupabaseMode } = useAuth();
+  const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
+
   const [step, setStep] = useState(1);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [review, setReview] = useState('');
@@ -73,6 +81,8 @@ export default function CheckIn() {
   const [hypeRating, setHypeRating] = useState<HypeRating | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'verifying' | 'verified'>('idle');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const [sampleRestaurants, setSampleRestaurants] = useState<Restaurant[]>([]);
 
@@ -85,22 +95,59 @@ export default function CheckIn() {
   };
 
   const canNext = () => {
+    if (submitting) return false;
     if (step === 1) return selectedRestaurant !== null;
     if (step === 3) return review.length > 10 || selectedTasteTags.length > 0;
     if (step === 4) return hypeRating !== null;
     return true;
   };
 
+  const handleSubmit = async () => {
+    if (isSupabaseMode && !userId) {
+      Alert.alert(
+        'Sign in required',
+        'Create an account to post check-ins.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign In', onPress: () => router.replace('/onboarding/welcome') },
+        ]
+      );
+      return;
+    }
+
+    if (!selectedRestaurant || !hypeRating) return;
+
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await createCheckIn({
+        restaurantId: selectedRestaurant.id,
+        review,
+        photos: [],
+        tasteTags: selectedTasteTags,
+        dietTags: selectedDietTags,
+        sceneTags: selectedSceneTags,
+        hypeRating,
+        locationVerified: locationStatus === 'verified',
+      });
+      setShowSuccess(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Check-in failed. Please try again.';
+      setSubmitError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleNext = () => {
     if (step < TOTAL_STEPS) {
       if (step === TOTAL_STEPS - 1) {
-        // Trigger location verification on step 5
         setLocationStatus('verifying');
         setTimeout(() => setLocationStatus('verified'), 2000);
       }
       setStep(step + 1);
     } else {
-      setShowSuccess(true);
+      void handleSubmit();
     }
   };
 
@@ -308,8 +355,8 @@ export default function CheckIn() {
               )}
             </View>
 
-            {locationStatus !== 'verified' && (
-              <TouchableOpacity style={styles.skipVerify} onPress={handleNext}>
+            {locationStatus !== 'verified' && !submitting && (
+              <TouchableOpacity style={styles.skipVerify} onPress={() => void handleSubmit()}>
                 <Text style={styles.skipVerifyText}>Skip verification (no bonus points)</Text>
               </TouchableOpacity>
             )}
@@ -319,15 +366,22 @@ export default function CheckIn() {
 
       {/* Navigation */}
       <View style={styles.navBar}>
+        {submitError ? (
+          <Text style={styles.submitError}>{submitError}</Text>
+        ) : null}
         <TouchableOpacity
           style={[styles.nextBtn, !canNext() && styles.nextBtnDisabled]}
           onPress={handleNext}
           disabled={!canNext()}
           activeOpacity={0.85}
         >
-          <Text style={styles.nextBtnText}>
-            {step === TOTAL_STEPS ? 'Post Check-in 🎉' : 'Next →'}
-          </Text>
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.nextBtnText}>
+              {step === TOTAL_STEPS ? 'Post Check-in 🎉' : 'Next →'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -686,6 +740,12 @@ const styles = StyleSheet.create({
   nextBtnText: {
     ...Typography.h3,
     color: '#fff',
+  },
+  submitError: {
+    ...Typography.caption,
+    color: Colors.error,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
   },
   successOverlay: {
     flex: 1,

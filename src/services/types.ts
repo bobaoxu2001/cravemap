@@ -16,6 +16,28 @@ export interface CreateCheckInInput {
   locationVerified?: boolean;
 }
 
+export interface CheckInRow {
+  id: string;
+  user_id: string;
+  restaurant_id: string;
+  review: string;
+  photos: string[] | null;
+  ordered_items: string[] | null;
+  taste_tags: string[] | null;
+  diet_tags: string[] | null;
+  scene_tags: string[] | null;
+  is_repeat_visit: boolean | null;
+  would_return: boolean | null;
+  hype_rating: 'worth_it' | 'overhyped' | 'not_sure';
+  location_verified: boolean | null;
+  helpful_count: number | null;
+  created_at: string | null;
+  profiles?: {
+    name: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
 // Profile
 export interface UpdateTastePassportInput {
   city?: string;

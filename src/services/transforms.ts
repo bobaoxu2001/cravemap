@@ -1,6 +1,6 @@
 // src/services/transforms.ts
-import type { Restaurant, UserProfile } from '../../types';
-import type { ProfileRow, RestaurantRow } from './types';
+import type { CheckIn, Restaurant, UserProfile } from '../../types';
+import type { CheckInRow, ProfileRow, RestaurantRow } from './types';
 
 const FALLBACK_AVATAR = 'https://picsum.photos/seed/cravemap_user/200/200';
 
@@ -79,5 +79,29 @@ export function restaurantFromRow(row: RestaurantRow): Restaurant {
     bestTimeToGo: optionalString(row.best_time_to_go),
     trendingSignal: row.trending_signal ?? undefined,
     recentVisits: row.recent_visits ?? 0,
+  };
+}
+
+export function checkInFromRow(row: CheckInRow): CheckIn {
+  const rawDate = row.created_at ?? '';
+  const date = rawDate ? rawDate.split('T')[0] : new Date().toISOString().split('T')[0];
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id,
+    userId: row.user_id,
+    userName: row.profiles?.name?.trim() || 'CraveMap Scout',
+    userAvatar: row.profiles?.avatar_url || FALLBACK_AVATAR,
+    date,
+    photos: row.photos ?? [],
+    review: row.review,
+    tasteTags: row.taste_tags ?? [],
+    dietTags: row.diet_tags ?? [],
+    sceneTags: row.scene_tags ?? [],
+    isRepeatVisit: row.is_repeat_visit ?? false,
+    hypeRating: row.hype_rating,
+    locationVerified: row.location_verified ?? false,
+    helpful: row.helpful_count ?? 0,
+    wouldReturn: row.would_return ?? undefined,
+    orderedItems: (row.ordered_items ?? []).length > 0 ? (row.ordered_items ?? []) : undefined,
   };
 }
