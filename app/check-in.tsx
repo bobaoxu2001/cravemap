@@ -19,9 +19,11 @@ import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { Restaurant } from '../types';
 import { getAllRestaurants } from '../src/services/restaurants';
 import { createCheckIn } from '../src/services/checkIns';
+import { getTastePersona } from '../src/services/profile';
 import { useAuth } from '../src/hooks/useAuth';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
+import AnimatedMascot from '../components/AnimatedMascot';
 
 const DEMO_USER_ID = 'u001';
 
@@ -71,7 +73,8 @@ function MultiChips({
 
 export default function CheckIn() {
   const router = useRouter();
-  const { session, isSupabaseMode } = useAuth();
+  const { session, isSupabaseMode, profile: authProfile } = useAuth();
+  const persona = authProfile ? getTastePersona(authProfile) : 'Authentic Explorer';
   const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
 
   const [step, setStep] = useState(1);
@@ -496,7 +499,12 @@ export default function CheckIn() {
       <Modal visible={showSuccess} transparent animationType="fade">
         <View style={styles.successOverlay}>
           <View style={styles.successCard}>
-            <Text style={styles.successEmoji}>🎉</Text>
+            <AnimatedMascot
+              key={String(showSuccess)}
+              persona={persona}
+              size={140}
+              animate
+            />
             <Text style={styles.successTitle}>You&apos;re shaping the map.</Text>
             <Text style={styles.successSub}>
               Your take on {selectedRestaurant?.name} just hit the local-approved feed.
@@ -920,9 +928,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     width: '100%',
-  },
-  successEmoji: {
-    fontSize: 64,
   },
   successTitle: {
     ...Typography.h1,

@@ -16,7 +16,7 @@ import { getFoundingScoutProgress, getRewardTasks } from '../../src/services/rew
 import { getTastePersona } from '../../src/services/profile';
 import { useAuth } from '../../src/hooks/useAuth';
 import ProgressBar from '../../components/ProgressBar';
-import Mascot from '../../components/Mascot';
+import AnimatedMascot from '../../components/AnimatedMascot';
 
 const DEMO_USER_ID = 'u001';
 
@@ -193,7 +193,12 @@ export default function Rewards() {
 
           {/* Mascot hero reward */}
           <View style={styles.mascotCard}>
-            <Mascot persona={persona} size={120} style={styles.mascotImage} />
+            <AnimatedMascot
+              persona={persona}
+              size={120}
+              animate
+              pulse={completedCount === progress.totalCount}
+            />
             <Text style={styles.mascotTitle}>The 好吃GO Dango Mascot Plush</Text>
             <Text style={styles.mascotDesc}>
               Limited edition. Only 50 plushies will exist. Founding Food Scouts get lottery entry — no purchase needed.
@@ -330,9 +335,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  mascotImage: {
     marginBottom: Spacing.sm,
   },
   mascotTitle: {
