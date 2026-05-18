@@ -30,7 +30,13 @@
     "scheme": "cravemap",
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow CraveMap to use your location to show nearby restaurants on the map."
+        }
+      ]
     ]
   }
 }

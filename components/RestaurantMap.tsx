@@ -1,6 +1,10 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
+// react-native-map-clustering wraps react-native-maps' MapView. It re-exports
+// Marker via react-native-maps, which we import directly.
+import ClusteredMapView from 'react-native-map-clustering';
+import { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { Colors, Spacing, Typography } from '../constants/theme';
 import { Restaurant } from '../types';
 
@@ -39,22 +43,87 @@ function computeRegion(restaurants: Restaurant[]): Region {
 }
 
 export default function RestaurantMap({ restaurants, selectedId, onSelect }: RestaurantMapProps) {
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<unknown>(null);
   const valid = useMemo(() => restaurants.filter(isValidCoord), [restaurants]);
   const initialRegion = useMemo(() => computeRegion(restaurants), [restaurants]);
 
-  // Recenter when the filter changes and the current selection is not part of the new set.
-  useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.animateToRegion(computeRegion(restaurants), 400);
-  }, [restaurants]);
+  // Track whether the user has manually interacted with the map. Once they
+  // pan/zoom themselves we stop programmatically recentering — feels rude
+  // otherwise.
+  const userInteractedRef = useRef(false);
 
-  // Pan to selection.
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationGranted, setLocationGranted] = useState(false);
+
+  // Request location permission once; never blocks the map render.
   useEffect(() => {
-    if (!mapRef.current || !selectedId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled) return;
+        if (status !== 'granted') {
+          setLocationGranted(false);
+          return;
+        }
+        setLocationGranted(true);
+        const pos = await Location.getLastKnownPositionAsync({}).catch(() => null);
+        if (pos && !cancelled) {
+          setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        }
+        const fresh = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        }).catch(() => null);
+        if (fresh && !cancelled) {
+          setUserLocation({ latitude: fresh.coords.latitude, longitude: fresh.coords.longitude });
+        }
+      } catch {
+        // Silently ignore — map still works without user location.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Animate helper that gracefully degrades if the underlying ref doesn't
+  // expose animateToRegion (some test/mocked setups).
+  const animateToRegion = useCallback((region: Region, duration = 400) => {
+    const ref = mapRef.current as { animateToRegion?: (r: Region, d?: number) => void } | null;
+    if (ref && typeof ref.animateToRegion === 'function') {
+      ref.animateToRegion(region, duration);
+    }
+  }, []);
+
+  // If we get a user location and the user hasn't taken over the map yet,
+  // center on them at a city-block-sized zoom.
+  useEffect(() => {
+    if (!userLocation || userInteractedRef.current) return;
+    animateToRegion(
+      {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      },
+      500
+    );
+  }, [animateToRegion, userLocation]);
+
+  // Recenter when the filtered restaurant set changes — unless the user has
+  // already manually moved the map.
+  useEffect(() => {
+    if (userInteractedRef.current) return;
+    animateToRegion(computeRegion(restaurants), 400);
+  }, [animateToRegion, restaurants]);
+
+  // Pan to selection regardless of interaction state — selection is itself
+  // a user action so this is expected.
+  useEffect(() => {
+    if (!selectedId) return;
     const target = valid.find((r) => r.id === selectedId);
     if (!target) return;
-    mapRef.current.animateToRegion(
+    animateToRegion(
       {
         latitude: target.latitude,
         longitude: target.longitude,
@@ -63,7 +132,7 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
       },
       350
     );
-  }, [selectedId, valid]);
+  }, [animateToRegion, selectedId, valid]);
 
   if (valid.length === 0) {
     return (
@@ -75,8 +144,8 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
   }
 
   return (
-    <MapView
-      ref={(ref) => {
+    <ClusteredMapView
+      mapRef={(ref) => {
         mapRef.current = ref;
       }}
       style={styles.map}
@@ -85,18 +154,37 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
       showsCompass={false}
       showsMyLocationButton={false}
       toolbarEnabled={false}
+      showsUserLocation={locationGranted}
+      // Clustering controls — tuned for ~20–200 restaurants per city.
+      clusteringEnabled
+      radius={48}
+      minPoints={3}
+      clusterColor={Colors.primary}
+      clusterTextColor="#FFFFFF"
+      onPanDrag={() => {
+        userInteractedRef.current = true;
+      }}
+      onRegionChangeComplete={(_region, details) => {
+        // `details.isGesture` is true on RN Maps when the change came from a
+        // user gesture. Guard for older versions where details may be missing.
+        if (details && (details as { isGesture?: boolean }).isGesture) {
+          userInteractedRef.current = true;
+        }
+      }}
     >
       {valid.map((r) => (
         <Marker
           key={r.id}
+          identifier={r.id}
           coordinate={{ latitude: r.latitude, longitude: r.longitude }}
           title={r.name}
           description={`${r.neighborhood} · ${r.cuisine}`}
           onPress={() => onSelect(r.id)}
           pinColor={selectedId === r.id ? Colors.primary : undefined}
+          tracksViewChanges={false}
         />
       ))}
-    </MapView>
+    </ClusteredMapView>
   );
 }
 
