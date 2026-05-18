@@ -163,8 +163,13 @@ create table if not exists public.invites (
   created_at timestamptz default now()
 );
 
+-- Column added in Commit 17 (idempotent for existing deployments).
+alter table public.invites
+  add column if not exists accepted_by_user_id uuid references public.profiles(id) on delete set null;
+
 create index if not exists idx_invites_code on public.invites(code);
 create index if not exists idx_invites_inviter on public.invites(inviter_id);
+create index if not exists idx_invites_accepted_by on public.invites(accepted_by_user_id);
 
 -- ---------------------------------------------------------------------------
 -- View: founding_scout_progress
@@ -256,6 +261,88 @@ drop trigger if exists trg_saved_counters on public.saved_restaurants;
 create trigger trg_saved_counters
   after insert or delete on public.saved_restaurants
   for each row execute function public.bump_saved_count();
+
+-- Invite acceptance → bump inviter's invite_count so founding_scout_progress
+-- view picks up the change. Handles forward (null → not null) and reverse
+-- (not null → null) transitions to stay symmetric.
+create or replace function public.bump_invite_count_on_accept()
+returns trigger as $$
+begin
+  if (tg_op = 'UPDATE') then
+    if (old.accepted_at is null and new.accepted_at is not null) then
+      update public.profiles
+        set invite_count = invite_count + 1
+        where id = new.inviter_id;
+    elsif (old.accepted_at is not null and new.accepted_at is null) then
+      update public.profiles
+        set invite_count = greatest(invite_count - 1, 0)
+        where id = new.inviter_id;
+    end if;
+  end if;
+  return null;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_invite_accepted on public.invites;
+create trigger trg_invite_accepted
+  after update on public.invites
+  for each row execute function public.bump_invite_count_on_accept();
+
+-- ---------------------------------------------------------------------------
+-- RPC: redeem_invite
+-- ---------------------------------------------------------------------------
+-- Single atomic entry point for invite redemption. Runs with definer rights
+-- so it can bypass the per-row invites RLS (which restricts SELECT/UPDATE to
+-- the inviter). Authorisation is enforced via auth.uid() inside the function.
+-- Returns jsonb { success: bool, error?: text } so the client can render
+-- expected validation failures without throwing.
+create or replace function public.redeem_invite(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_invite record;
+begin
+  if v_user_id is null then
+    return jsonb_build_object('success', false, 'error', 'You must be signed in to redeem an invite.');
+  end if;
+
+  p_code := upper(trim(p_code));
+  if p_code is null or p_code = '' then
+    return jsonb_build_object('success', false, 'error', 'Please enter an invite code.');
+  end if;
+
+  select id, inviter_id, accepted_at
+    into v_invite
+    from public.invites
+    where code = p_code;
+
+  if not found then
+    return jsonb_build_object('success', false, 'error', 'Invalid invite code. Please check and try again.');
+  end if;
+
+  if v_invite.inviter_id = v_user_id then
+    return jsonb_build_object('success', false, 'error', 'You cannot redeem your own invite code.');
+  end if;
+
+  if v_invite.accepted_at is not null then
+    return jsonb_build_object('success', false, 'error', 'This invite code has already been redeemed.');
+  end if;
+
+  update public.invites
+    set accepted_at = now(),
+        accepted_by_user_id = v_user_id
+    where id = v_invite.id;
+
+  return jsonb_build_object('success', true);
+end;
+$$;
+
+revoke execute on function public.redeem_invite(text) from public, anon;
+grant execute on function public.redeem_invite(text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- RLS

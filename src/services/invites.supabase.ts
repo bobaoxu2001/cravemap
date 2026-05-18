@@ -29,11 +29,17 @@ interface InviteRow {
   created_at: string;
 }
 
-interface InviteRedeemRow {
-  id: string;
-  inviter_id: string;
-  accepted_at: string | null;
-  accepted_by_user_id: string | null;
+interface RedeemInviteRpcResponse {
+  success: boolean;
+  error?: string;
+}
+
+function isRedeemRpcResponse(value: unknown): value is RedeemInviteRpcResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { success?: unknown }).success === 'boolean'
+  );
 }
 
 function rowToInvite(row: InviteRow): Invite {
@@ -104,46 +110,31 @@ export async function getMyInvites(userId: string): Promise<Invite[]> {
 }
 
 export async function redeemInvite(userId: string, code: string): Promise<RedeemInviteResult> {
-  if (!userId) return { success: false, error: 'You must be signed in to redeem an invite.' };
+  if (!userId) {
+    return { success: false, error: 'You must be signed in to redeem an invite.' };
+  }
 
-  const client = requireClient();
   const normalised = code.trim().toUpperCase();
-
-  // Look up the invite by code.
-  const { data: inviteData, error: lookupError } = await client
-    .from('invites')
-    .select('id, inviter_id, accepted_at, accepted_by_user_id')
-    .eq('code', normalised)
-    .maybeSingle();
-
-  if (lookupError) {
-    return { success: false, error: lookupError.message || 'Could not look up invite code.' };
-  }
-  if (!inviteData) {
-    return { success: false, error: 'Invalid invite code. Please check and try again.' };
+  if (!normalised) {
+    return { success: false, error: 'Please enter an invite code.' };
   }
 
-  const invite = inviteData as unknown as InviteRedeemRow;
+  // Delegate to the security-definer RPC. The function uses auth.uid() to
+  // identify the redeemer, validates the code, prevents self/double
+  // redemption, marks accepted_at + accepted_by_user_id, and the
+  // bump_invite_count_on_accept trigger updates the inviter's
+  // founding_scout_progress.two_invites flag.
+  const { data, error } = await requireClient().rpc('redeem_invite', { p_code: normalised });
 
-  if (invite.inviter_id === userId) {
-    return { success: false, error: "You can't redeem your own invite code." };
-  }
-  if (invite.accepted_at != null) {
-    return { success: false, error: 'This invite code has already been redeemed.' };
-  }
-
-  // Mark the invite accepted.
-  const { error: updateError } = await client
-    .from('invites')
-    .update({
-      accepted_at: new Date().toISOString(),
-      accepted_by_user_id: userId,
-    })
-    .eq('id', invite.id);
-
-  if (updateError) {
-    return { success: false, error: updateError.message || 'Could not redeem invite. Please try again.' };
+  if (error) {
+    return { success: false, error: error.message || 'Could not redeem invite. Please try again.' };
   }
 
-  return { success: true };
+  if (!isRedeemRpcResponse(data)) {
+    return { success: false, error: 'Could not redeem invite. Please try again.' };
+  }
+
+  return data.success
+    ? { success: true }
+    : { success: false, error: data.error ?? 'Could not redeem invite. Please try again.' };
 }
