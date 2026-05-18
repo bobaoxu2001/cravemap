@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated } from 'react-native';
+import { Animated, Pressable } from 'react-native';
 import Mascot from './Mascot';
 
 interface AnimatedMascotProps {
@@ -10,6 +10,8 @@ interface AnimatedMascotProps {
   animate?: boolean;
   /** When true, loops a gentle scale pulse after the entrance animation. */
   pulse?: boolean;
+  /** Optional tap handler — triggers a small bounce and fires the callback. */
+  onPress?: () => void;
 }
 
 /**
@@ -24,9 +26,19 @@ export default function AnimatedMascot({
   size = 120,
   animate = true,
   pulse = false,
+  onPress,
 }: AnimatedMascotProps) {
   const scaleAnim = useRef(new Animated.Value(animate ? 0 : 1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const tapAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.spring(tapAnim, { toValue: 1.18, useNativeDriver: true, tension: 220, friction: 4 }),
+      Animated.spring(tapAnim, { toValue: 1, useNativeDriver: true, tension: 180, friction: 6 }),
+    ]).start();
+    onPress?.();
+  };
 
   // Entrance spring — runs once on mount.
   useEffect(() => {
@@ -64,11 +76,20 @@ export default function AnimatedMascot({
     return () => loop.stop();
   }, [pulse]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
+  const content = (
     <Animated.View
-      style={{ transform: [{ scale: scaleAnim }, { scale: pulseAnim }] }}
+      style={{ transform: [{ scale: scaleAnim }, { scale: pulseAnim }, { scale: tapAnim }] }}
     >
       <Mascot persona={persona} size={size} />
     </Animated.View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={handlePress} hitSlop={8}>
+        {content}
+      </Pressable>
+    );
+  }
+  return content;
 }

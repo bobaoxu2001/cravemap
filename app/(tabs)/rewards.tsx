@@ -20,6 +20,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import ProgressBar from '../../components/ProgressBar';
 import AnimatedMascot from '../../components/AnimatedMascot';
 import Sparkles from '../../components/Sparkles';
+import { CheckInEntrance } from '../../components/CheckInAnimation';
 
 const DEMO_USER_ID = 'u001';
 
@@ -188,25 +189,27 @@ export default function Rewards() {
 
           {/* Tasks */}
           <View style={styles.taskList}>
-            {tasks.map((task) => (
-              <View key={task.key} style={[styles.taskItem, task.done && styles.taskItemDone]}>
-                <View style={[styles.taskCheckbox, task.done && styles.taskCheckboxDone]}>
-                  {task.done ? (
-                    <Ionicons name="checkmark" size={16} color="#fff" />
-                  ) : (
-                    <View style={styles.taskCheckboxEmpty} />
-                  )}
+            {tasks.map((task, idx) => (
+              <CheckInEntrance key={task.key} delay={idx * 70} highlight={task.done}>
+                <View style={[styles.taskItem, task.done && styles.taskItemDone]}>
+                  <View style={[styles.taskCheckbox, task.done && styles.taskCheckboxDone]}>
+                    {task.done ? (
+                      <Ionicons name="checkmark" size={16} color="#fff" />
+                    ) : (
+                      <View style={styles.taskCheckboxEmpty} />
+                    )}
+                  </View>
+                  <View style={styles.taskInfo}>
+                    <Text style={[styles.taskLabel, task.done && styles.taskLabelDone]}>{task.label}</Text>
+                    <Text style={[styles.taskStatus, task.done && styles.taskStatusDone]}>
+                      {task.done ? TASK_LABELS[task.key].done : TASK_LABELS[task.key].pending}
+                    </Text>
+                  </View>
+                  <View style={styles.pointsBadge}>
+                    <Text style={styles.pointsText}>+{task.points}pts</Text>
+                  </View>
                 </View>
-                <View style={styles.taskInfo}>
-                  <Text style={[styles.taskLabel, task.done && styles.taskLabelDone]}>{task.label}</Text>
-                  <Text style={[styles.taskStatus, task.done && styles.taskStatusDone]}>
-                    {task.done ? TASK_LABELS[task.key].done : TASK_LABELS[task.key].pending}
-                  </Text>
-                </View>
-                <View style={styles.pointsBadge}>
-                  <Text style={styles.pointsText}>+{task.points}pts</Text>
-                </View>
-              </View>
+              </CheckInEntrance>
             ))}
           </View>
         </View>

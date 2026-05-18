@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { Animated, StyleSheet, View, Text, Pressable } from 'react-native';
 // react-native-map-clustering wraps react-native-maps' MapView. It re-exports
 // Marker via react-native-maps, which we import directly.
 import ClusteredMapView from 'react-native-map-clustering';
@@ -137,7 +137,12 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
 
   // Recenter FAB — taps reset the interaction flag and fly to user location
   // (or restaurant region if location is unavailable).
+  const fabScale = useRef(new Animated.Value(1)).current;
   const handleRecenter = useCallback(() => {
+    Animated.sequence([
+      Animated.spring(fabScale, { toValue: 0.88, useNativeDriver: true, tension: 300, friction: 5 }),
+      Animated.spring(fabScale, { toValue: 1, useNativeDriver: true, tension: 220, friction: 6 }),
+    ]).start();
     userInteractedRef.current = false;
     if (userLocation) {
       animateToRegion(
@@ -152,7 +157,7 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
     } else {
       animateToRegion(computeRegion(restaurants), 450);
     }
-  }, [animateToRegion, restaurants, userLocation]);
+  }, [animateToRegion, fabScale, restaurants, userLocation]);
 
   if (valid.length === 0) {
     return (
@@ -206,18 +211,19 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
         />
       ))}
     </ClusteredMapView>
-    <TouchableOpacity
-      style={styles.fab}
-      onPress={handleRecenter}
-      activeOpacity={0.85}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-    >
-      <Ionicons
-        name={locationGranted ? 'locate' : 'map-outline'}
-        size={20}
-        color={Colors.primary}
-      />
-    </TouchableOpacity>
+    <Animated.View style={[styles.fab, { transform: [{ scale: fabScale }] }]}>
+      <Pressable
+        onPress={handleRecenter}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={styles.fabInner}
+      >
+        <Ionicons
+          name={locationGranted ? 'locate' : 'map-outline'}
+          size={20}
+          color={Colors.primary}
+        />
+      </Pressable>
+    </Animated.View>
     </View>
   );
 }
@@ -238,8 +244,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -247,6 +251,12 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  fabInner: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyContainer: {
     flex: 1,
