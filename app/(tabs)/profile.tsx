@@ -107,8 +107,9 @@ export default function Profile() {
       const invite = await createInvite();
       try {
         await Share.share({
-          message: `Join me on CraveMap — the local food discovery app! Use my invite code: ${invite.code}`,
+          message: `Join me on CraveMap — the local food discovery app!\n\nUse my invite link: cravemap://redeem?code=${invite.code}\n\nOr enter code manually: ${invite.code}`,
           title: 'Join CraveMap',
+          url: `cravemap://redeem?code=${invite.code}`,
         });
       } catch {
         Alert.alert('Your invite code', invite.code, [{ text: 'OK' }]);
