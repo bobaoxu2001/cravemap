@@ -50,6 +50,14 @@ export function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInR
   return Promise.resolve(checkIn);
 }
 
+export function getHelpfulCheckInIds(
+  _userId: string,
+  checkInIds: string[]
+): Promise<string[]> {
+  const marked = checkInIds.filter((id) => MOCK_MARKED.has(`${MOCK_USER_ID}:${id}`));
+  return Promise.resolve(marked);
+}
+
 export function markHelpful(checkInId: string): Promise<MarkHelpfulResult> {
   if (!checkInId) {
     return Promise.resolve({ success: false, helpfulCount: 0, error: 'Missing check-in id.' });

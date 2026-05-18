@@ -61,3 +61,21 @@ export function markHelpful(checkInId: string): Promise<MarkHelpfulResult> {
   // Write — do not fall back silently; surface errors to the caller.
   return supabase.markHelpful(checkInId);
 }
+
+/**
+ * Returns the subset of `checkInIds` the given user has already marked
+ * helpful. Used on screen mount to seed the per-session thumbs-up state so
+ * previously-marked cards render filled immediately.
+ */
+export function getHelpfulCheckInIds(
+  userId: string,
+  checkInIds: string[]
+): Promise<string[]> {
+  if (!USE_SUPABASE) {
+    return mock.getHelpfulCheckInIds(userId, checkInIds);
+  }
+  return withMockFallback(
+    () => supabase.getHelpfulCheckInIds(userId, checkInIds),
+    () => mock.getHelpfulCheckInIds(userId, checkInIds)
+  );
+}

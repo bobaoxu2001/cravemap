@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant, CheckIn } from '../../types';
 import { getRestaurantById } from '../../src/services/restaurants';
-import { getCheckInsByRestaurantId, markHelpful } from '../../src/services/checkIns';
+import { getCheckInsByRestaurantId, markHelpful, getHelpfulCheckInIds } from '../../src/services/checkIns';
 import {
   isRestaurantSaved,
   saveRestaurant,
@@ -46,9 +46,28 @@ export default function RestaurantDetail() {
 
   const loadData = useCallback(() => {
     Promise.all([getRestaurantById(id), getCheckInsByRestaurantId(id)])
-      .then(([r, c]) => { setRestaurant(r ?? null); setCheckIns(c); })
+      .then(([r, c]) => {
+        setRestaurant(r ?? null);
+        setCheckIns(c);
+        // Seed the per-session helpful-marked map from the DB so already-marked
+        // check-ins render with the filled thumbs-up on mount rather than on
+        // first press. userId may be null in mock mode; service handles it.
+        const uid = userId;
+        if (c.length > 0) {
+          getHelpfulCheckInIds(uid ?? 'u001', c.map((ci) => ci.id))
+            .then((markedIds) => {
+              if (markedIds.length === 0) return;
+              setHelpfulMarked((prev) => {
+                const next = { ...prev };
+                markedIds.forEach((mid) => { next[mid] = true; });
+                return next;
+              });
+            })
+            .catch(() => { /* non-fatal — fall through */ });
+        }
+      })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, userId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

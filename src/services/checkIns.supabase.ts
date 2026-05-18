@@ -165,6 +165,32 @@ export async function createCheckIn(input: CreateCheckInInput): Promise<CreateCh
   return { ...checkInFromRow(updateData as unknown as CheckInRow), warning };
 }
 
+/**
+ * Returns the subset of `checkInIds` that the current user has already marked
+ * helpful. Used on screen mount to seed the per-session helpfulMarked map so
+ * the thumbs-up renders filled immediately rather than empty-until-press.
+ */
+export async function getHelpfulCheckInIds(
+  userId: string,
+  checkInIds: string[]
+): Promise<string[]> {
+  if (!userId || !checkInIds.length) return [];
+
+  const { data, error } = await requireClient()
+    .from('check_in_helpful')
+    .select('check_in_id')
+    .eq('user_id', userId)
+    .in('check_in_id', checkInIds);
+
+  if (error) {
+    if (__DEV__) {
+      console.warn('[CraveMap] getHelpfulCheckInIds failed:', error.message);
+    }
+    return [];
+  }
+  return ((data ?? []) as Array<{ check_in_id: string }>).map((r) => r.check_in_id);
+}
+
 interface IncrementHelpfulRpcResponse {
   success: boolean;
   helpful_count?: number;
