@@ -80,14 +80,14 @@ export default function RedeemScreen() {
 
   function handleGoToProfile() {
     // Navigate to the profile tab
-    router.replace('/(tabs)/profile' as any);
+    router.replace({ pathname: '/(tabs)/profile' });
   }
 
   function handleGoBack() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/(tabs)/profile' as any);
+      router.replace({ pathname: '/(tabs)/profile' });
     }
   }
 

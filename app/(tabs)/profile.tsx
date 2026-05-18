@@ -130,7 +130,7 @@ export default function Profile() {
       return;
     }
     if (item.route) {
-      router.push(item.route as any);
+      router.push({ pathname: item.route as '/(tabs)/profile' | '/my-check-ins' | '/onboarding/taste-passport' });
     }
   };
 

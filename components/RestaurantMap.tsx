@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 // react-native-map-clustering wraps react-native-maps' MapView. It re-exports
 // Marker via react-native-maps, which we import directly.
 import ClusteredMapView from 'react-native-map-clustering';
 import { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { Colors, Spacing, Typography } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { Restaurant } from '../types';
 
 interface RestaurantMapProps {
@@ -134,6 +135,25 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
     );
   }, [animateToRegion, selectedId, valid]);
 
+  // Recenter FAB — taps reset the interaction flag and fly to user location
+  // (or restaurant region if location is unavailable).
+  const handleRecenter = useCallback(() => {
+    userInteractedRef.current = false;
+    if (userLocation) {
+      animateToRegion(
+        {
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        },
+        450
+      );
+    } else {
+      animateToRegion(computeRegion(restaurants), 450);
+    }
+  }, [animateToRegion, restaurants, userLocation]);
+
   if (valid.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -144,6 +164,7 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
   }
 
   return (
+    <View style={styles.container}>
     <ClusteredMapView
       mapRef={(ref) => {
         mapRef.current = ref;
@@ -185,12 +206,47 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
         />
       ))}
     </ClusteredMapView>
+    <TouchableOpacity
+      style={styles.fab}
+      onPress={handleRecenter}
+      activeOpacity={0.85}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Ionicons
+        name={locationGranted ? 'locate' : 'map-outline'}
+        size={20}
+        color={Colors.primary}
+      />
+    </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: 'relative',
+  },
   map: {
     flex: 1,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: Spacing.xl,
+    right: Spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   emptyContainer: {
     flex: 1,
