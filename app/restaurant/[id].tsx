@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant, CheckIn } from '../../types';
 import { getRestaurantById } from '../../src/services/restaurants';
-import { getCheckInsByRestaurantId } from '../../src/services/checkIns';
+import { getCheckInsByRestaurantId, markHelpful } from '../../src/services/checkIns';
 import {
   isRestaurantSaved,
   saveRestaurant,
@@ -40,6 +40,9 @@ export default function RestaurantDetail() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [loading, setLoading] = useState(true);
+  // Track per-check-in marked-helpful + in-flight state for this session.
+  const [helpfulMarked, setHelpfulMarked] = useState<Record<string, boolean>>({});
+  const [helpfulLoading, setHelpfulLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     Promise.all([getRestaurantById(id), getCheckInsByRestaurantId(id)])
@@ -85,6 +88,56 @@ export default function RestaurantDetail() {
       setSaveLoading(false);
     }
   }, [id, isSupabaseMode, router, saved, saveLoading, userId]);
+
+  const handleMarkHelpful = useCallback(async (checkInId: string) => {
+    if (!checkInId) return;
+    if (helpfulLoading[checkInId] || helpfulMarked[checkInId]) return;
+
+    if (isSupabaseMode && !userId) {
+      Alert.alert(
+        'Sign in required',
+        'Create an account to mark check-ins helpful.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign In', onPress: () => router.replace('/onboarding/welcome') },
+        ]
+      );
+      return;
+    }
+
+    // Optimistic UI: bump count, mark, flip loading.
+    setHelpfulLoading((prev) => ({ ...prev, [checkInId]: true }));
+    setHelpfulMarked((prev) => ({ ...prev, [checkInId]: true }));
+    setCheckIns((prev) =>
+      prev.map((c) => (c.id === checkInId ? { ...c, helpful: c.helpful + 1 } : c))
+    );
+
+    try {
+      const result = await markHelpful(checkInId);
+      if (!result.success) {
+        // Rollback on failure
+        setHelpfulMarked((prev) => ({ ...prev, [checkInId]: false }));
+        setCheckIns((prev) =>
+          prev.map((c) => (c.id === checkInId ? { ...c, helpful: Math.max(c.helpful - 1, 0) } : c))
+        );
+        Alert.alert('Could not mark helpful', result.error ?? 'Please try again.');
+      } else {
+        // Reconcile to authoritative server count
+        setCheckIns((prev) =>
+          prev.map((c) => (c.id === checkInId ? { ...c, helpful: result.helpfulCount } : c))
+        );
+      }
+    } catch (err) {
+      setHelpfulMarked((prev) => ({ ...prev, [checkInId]: false }));
+      setCheckIns((prev) =>
+        prev.map((c) => (c.id === checkInId ? { ...c, helpful: Math.max(c.helpful - 1, 0) } : c))
+      );
+      const message = err instanceof Error ? err.message : 'Please try again.';
+      Alert.alert('Could not mark helpful', message);
+    } finally {
+      setHelpfulLoading((prev) => ({ ...prev, [checkInId]: false }));
+    }
+  }, [helpfulLoading, helpfulMarked, isSupabaseMode, router, userId]);
 
   if (loading) {
     return (
@@ -313,7 +366,15 @@ export default function RestaurantDetail() {
           {checkIns.length > 0 ? (
             [...checkIns]
               .sort((a, b) => b.helpful - a.helpful)
-              .map((ci) => <CheckInCard key={ci.id} checkIn={ci} />)
+              .map((ci) => (
+                <CheckInCard
+                  key={ci.id}
+                  checkIn={ci}
+                  onMarkHelpful={handleMarkHelpful}
+                  helpfulLoading={!!helpfulLoading[ci.id]}
+                  helpfulMarked={!!helpfulMarked[ci.id]}
+                />
+              ))
           ) : (
             <View style={styles.noCheckIns}>
               <Text style={styles.noCheckInsText}>No check-ins yet. Be the first to shape this spot.</Text>

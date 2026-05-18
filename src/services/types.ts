@@ -21,6 +21,13 @@ export interface CreateCheckInInput {
   locationVerified?: boolean;
 }
 
+export interface MarkHelpfulResult {
+  success: boolean;
+  helpfulCount: number;
+  alreadyMarked?: boolean;
+  error?: string;
+}
+
 export interface CheckInRow {
   id: string;
   user_id: string;

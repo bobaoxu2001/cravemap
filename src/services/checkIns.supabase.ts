@@ -2,7 +2,7 @@ import type { CheckIn } from '../../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { checkInFromRow } from './transforms';
 import { uploadCheckInPhotos } from './storage.supabase';
-import type { CheckInRow, CreateCheckInInput, CreateCheckInResult } from './types';
+import type { CheckInRow, CreateCheckInInput, CreateCheckInResult, MarkHelpfulResult } from './types';
 
 function isLocalUri(uri: string): boolean {
   return /^(file:|content:|ph:|assets-library:|blob:|data:)/i.test(uri);
@@ -165,8 +165,50 @@ export async function createCheckIn(input: CreateCheckInInput): Promise<CreateCh
   return { ...checkInFromRow(updateData as unknown as CheckInRow), warning };
 }
 
-export async function markHelpful(_checkInId: string): Promise<void> {
-  // No-op: helpful counting requires a dedicated RPC or trigger to avoid race conditions.
-  // Will be wired in a future commit.
-  return Promise.resolve();
+interface IncrementHelpfulRpcResponse {
+  success: boolean;
+  helpful_count?: number;
+  already_marked?: boolean;
+  error?: string;
+}
+
+function isIncrementHelpfulResponse(value: unknown): value is IncrementHelpfulRpcResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { success?: unknown }).success === 'boolean'
+  );
+}
+
+export async function markHelpful(checkInId: string): Promise<MarkHelpfulResult> {
+  if (!checkInId) {
+    return { success: false, helpfulCount: 0, error: 'Missing check-in id.' };
+  }
+
+  const client = requireClient();
+  const { data: { user }, error: authError } = await client.auth.getUser();
+  if (authError || !user) {
+    return { success: false, helpfulCount: 0, error: 'You must be signed in to mark a check-in helpful.' };
+  }
+
+  // Delegate to the security-definer RPC for atomic insert+increment.
+  const { data, error } = await client.rpc('increment_check_in_helpful', { p_check_in_id: checkInId });
+
+  if (error) {
+    return { success: false, helpfulCount: 0, error: error.message || 'Could not mark helpful. Please try again.' };
+  }
+
+  if (!isIncrementHelpfulResponse(data)) {
+    return { success: false, helpfulCount: 0, error: 'Could not mark helpful. Please try again.' };
+  }
+
+  if (!data.success) {
+    return { success: false, helpfulCount: 0, error: data.error ?? 'Could not mark helpful. Please try again.' };
+  }
+
+  return {
+    success: true,
+    helpfulCount: data.helpful_count ?? 0,
+    alreadyMarked: data.already_marked ?? false,
+  };
 }

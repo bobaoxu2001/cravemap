@@ -345,6 +345,76 @@ revoke execute on function public.redeem_invite(text) from public, anon;
 grant execute on function public.redeem_invite(text) to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- RPC: increment_check_in_helpful
+-- ---------------------------------------------------------------------------
+-- Atomic "mark helpful" entry point. Runs as security definer so it can both
+-- insert into check_in_helpful and update check_ins.helpful_count under the
+-- same transaction without the caller needing direct UPDATE rights on
+-- check_ins. Authorisation uses auth.uid() so the marker cannot be spoofed.
+-- The (user_id, check_in_id) primary key on check_in_helpful prevents
+-- double-counting; on conflict we return the existing count with
+-- already_marked=true rather than throwing.
+create or replace function public.increment_check_in_helpful(p_check_in_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_rows_inserted int := 0;
+  v_count int;
+  v_exists boolean;
+begin
+  if v_user_id is null then
+    return jsonb_build_object('success', false, 'error', 'You must be signed in to mark a check-in helpful.');
+  end if;
+
+  if p_check_in_id is null then
+    return jsonb_build_object('success', false, 'error', 'Missing check-in id.');
+  end if;
+
+  select exists(select 1 from public.check_ins where id = p_check_in_id) into v_exists;
+  if not v_exists then
+    return jsonb_build_object('success', false, 'error', 'Check-in not found.');
+  end if;
+
+  -- Atomic insert; ON CONFLICT means this user already marked it.
+  insert into public.check_in_helpful (user_id, check_in_id)
+    values (v_user_id, p_check_in_id)
+    on conflict (user_id, check_in_id) do nothing;
+
+  get diagnostics v_rows_inserted = row_count;
+
+  if v_rows_inserted > 0 then
+    update public.check_ins
+      set helpful_count = coalesce(helpful_count, 0) + 1
+      where id = p_check_in_id
+      returning helpful_count into v_count;
+
+    return jsonb_build_object(
+      'success', true,
+      'helpful_count', coalesce(v_count, 0),
+      'already_marked', false
+    );
+  else
+    select coalesce(helpful_count, 0) into v_count
+      from public.check_ins
+      where id = p_check_in_id;
+
+    return jsonb_build_object(
+      'success', true,
+      'helpful_count', coalesce(v_count, 0),
+      'already_marked', true
+    );
+  end if;
+end;
+$$;
+
+revoke execute on function public.increment_check_in_helpful(uuid) from public, anon;
+grant execute on function public.increment_check_in_helpful(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- RLS
 -- ---------------------------------------------------------------------------
 alter table public.profiles            enable row level security;

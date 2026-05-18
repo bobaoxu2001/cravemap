@@ -1,7 +1,13 @@
 import type { CheckIn } from '../../types';
 import { mockCheckIns } from '../../data/mockCheckIns';
 import { mockUser } from '../../data/mockUser';
-import type { CreateCheckInInput, CreateCheckInResult } from './types';
+import type { CreateCheckInInput, CreateCheckInResult, MarkHelpfulResult } from './types';
+
+// In-memory dedup so a user can't mark the same check-in helpful twice in
+// a single mock session. Survives within the JS runtime; resets on reload.
+const MOCK_MARKED = new Set<string>();
+const MOCK_COUNTS = new Map<string, number>();
+const MOCK_USER_ID = 'u001';
 
 export function getAllCheckIns(): Promise<CheckIn[]> {
   return Promise.resolve(mockCheckIns);
@@ -44,7 +50,32 @@ export function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInR
   return Promise.resolve(checkIn);
 }
 
-export function markHelpful(_checkInId: string): Promise<void> {
-  // No-op in mock; real impl will increment helpful count in Supabase.
-  return Promise.resolve();
+export function markHelpful(checkInId: string): Promise<MarkHelpfulResult> {
+  if (!checkInId) {
+    return Promise.resolve({ success: false, helpfulCount: 0, error: 'Missing check-in id.' });
+  }
+
+  const key = `${MOCK_USER_ID}:${checkInId}`;
+  const baseCount =
+    MOCK_COUNTS.get(checkInId) ??
+    mockCheckIns.find((c) => c.id === checkInId)?.helpful ??
+    0;
+
+  if (MOCK_MARKED.has(key)) {
+    return Promise.resolve({
+      success: true,
+      helpfulCount: baseCount,
+      alreadyMarked: true,
+    });
+  }
+
+  const nextCount = baseCount + 1;
+  MOCK_MARKED.add(key);
+  MOCK_COUNTS.set(checkInId, nextCount);
+
+  return Promise.resolve({
+    success: true,
+    helpfulCount: nextCount,
+    alreadyMarked: false,
+  });
 }

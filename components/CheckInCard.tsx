@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CheckIn } from '../types';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
@@ -7,6 +7,10 @@ import TagChip from './TagChip';
 
 interface CheckInCardProps {
   checkIn: CheckIn;
+  /** Optional helpful-action props. Card stays read-only when omitted. */
+  onMarkHelpful?: (checkInId: string) => void;
+  helpfulLoading?: boolean;
+  helpfulMarked?: boolean;
 }
 
 const hypeLabel: Record<CheckIn['hypeRating'], { label: string; color: string; bg: string; emoji: string }> = {
@@ -15,8 +19,20 @@ const hypeLabel: Record<CheckIn['hypeRating'], { label: string; color: string; b
   not_sure: { label: 'Not Sure', color: Colors.textMuted, bg: '#F0F0F0', emoji: '🤔' },
 };
 
-export default function CheckInCard({ checkIn }: CheckInCardProps) {
+export default function CheckInCard({
+  checkIn,
+  onMarkHelpful,
+  helpfulLoading = false,
+  helpfulMarked = false,
+}: CheckInCardProps) {
   const hype = hypeLabel[checkIn.hypeRating];
+  const helpfulInteractive = typeof onMarkHelpful === 'function';
+  const helpfulDisabled = helpfulLoading || helpfulMarked;
+
+  const handleHelpfulPress = () => {
+    if (!onMarkHelpful || helpfulDisabled) return;
+    onMarkHelpful(checkIn.id);
+  };
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -78,10 +94,37 @@ export default function CheckInCard({ checkIn }: CheckInCardProps) {
       </View>
 
       <View style={styles.footer}>
-        <View style={styles.helpfulRow}>
-          <Ionicons name="thumbs-up-outline" size={14} color={Colors.textMuted} />
-          <Text style={styles.helpfulCount}>{checkIn.helpful} helpful</Text>
-        </View>
+        {helpfulInteractive ? (
+          <TouchableOpacity
+            onPress={handleHelpfulPress}
+            disabled={helpfulDisabled}
+            activeOpacity={0.7}
+            style={[
+              styles.helpfulBtn,
+              helpfulMarked && styles.helpfulBtnMarked,
+              helpfulDisabled && !helpfulMarked && styles.helpfulBtnDisabled,
+            ]}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            {helpfulLoading ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <Ionicons
+                name={helpfulMarked ? 'thumbs-up' : 'thumbs-up-outline'}
+                size={14}
+                color={helpfulMarked ? Colors.primary : Colors.textMuted}
+              />
+            )}
+            <Text style={[styles.helpfulCount, helpfulMarked && styles.helpfulCountMarked]}>
+              {checkIn.helpful} helpful
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.helpfulRow}>
+            <Ionicons name="thumbs-up-outline" size={14} color={Colors.textMuted} />
+            <Text style={styles.helpfulCount}>{checkIn.helpful} helpful</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -210,6 +253,28 @@ const styles = StyleSheet.create({
   helpfulCount: {
     ...Typography.caption,
     color: Colors.textMuted,
+  },
+  helpfulBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: '#F7F5F1',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  helpfulBtnMarked: {
+    backgroundColor: Colors.secondary,
+    borderColor: Colors.primary,
+  },
+  helpfulBtnDisabled: {
+    opacity: 0.6,
+  },
+  helpfulCountMarked: {
+    color: Colors.primary,
+    fontWeight: '600',
   },
   userBio: {
     fontSize: 11,

@@ -3,7 +3,7 @@ import type { CheckIn } from '../../types';
 import { USE_SUPABASE } from './config';
 import * as mock from './checkIns.mock';
 import * as supabase from './checkIns.supabase';
-import type { CreateCheckInInput, CreateCheckInResult } from './types';
+import type { CreateCheckInInput, CreateCheckInResult, MarkHelpfulResult } from './types';
 
 async function withMockFallback<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
   try {
@@ -54,12 +54,10 @@ export function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInR
   return supabase.createCheckIn(input);
 }
 
-export function markHelpful(checkInId: string): Promise<void> {
+export function markHelpful(checkInId: string): Promise<MarkHelpfulResult> {
   if (!USE_SUPABASE) {
     return mock.markHelpful(checkInId);
   }
-  return withMockFallback(
-    () => supabase.markHelpful(checkInId),
-    () => mock.markHelpful(checkInId)
-  );
+  // Write — do not fall back silently; surface errors to the caller.
+  return supabase.markHelpful(checkInId);
 }
