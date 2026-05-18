@@ -1,0 +1,19 @@
+# EAS Build ignore — applied on top of .gitignore for build uploads.
+# Keeps the source archive small so builds queue faster.
+
+# Local secrets (never expose to EAS)
+.env
+.env.local
+.env.development
+.env.production
+
+# Local archetype assets (huge raw PNGs not used by the app bundle)
+archetypes/
+
+# Supabase SQL dumps (server-side only, not needed by the client build)
+supabase/seed.sql
+
+# Editor / OS junk
+.DS_Store
+*.swp
+*.tmp
