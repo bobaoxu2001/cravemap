@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CheckIn } from '../types';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import TagChip from './TagChip';
+import { CheckInEntrance, CheckInStickers, BounceOnChange } from './CheckInAnimation';
 
 interface CheckInCardProps {
   checkIn: CheckIn;
@@ -11,6 +12,10 @@ interface CheckInCardProps {
   onMarkHelpful?: (checkInId: string) => void;
   helpfulLoading?: boolean;
   helpfulMarked?: boolean;
+  /** When true, show sparkle stickers + slightly bouncier entrance. */
+  highlightNew?: boolean;
+  /** Stagger delay for entrance reveal (ms). */
+  entranceDelay?: number;
 }
 
 const hypeLabel: Record<CheckIn['hypeRating'], { label: string; color: string; bg: string; emoji: string }> = {
@@ -24,6 +29,8 @@ export default function CheckInCard({
   onMarkHelpful,
   helpfulLoading = false,
   helpfulMarked = false,
+  highlightNew = false,
+  entranceDelay = 0,
 }: CheckInCardProps) {
   const hype = hypeLabel[checkIn.hypeRating];
   const helpfulInteractive = typeof onMarkHelpful === 'function';
@@ -34,7 +41,14 @@ export default function CheckInCard({
     onMarkHelpful(checkIn.id);
   };
   return (
-    <View style={styles.container}>
+    <CheckInEntrance delay={entranceDelay} highlight={highlightNew}>
+    <View style={[styles.container, highlightNew && styles.containerHighlighted]}>
+      {highlightNew && <CheckInStickers active emoji="✨" />}
+      {highlightNew && (
+        <View style={styles.newBadge} pointerEvents="none">
+          <Text style={styles.newBadgeText}>NEW</Text>
+        </View>
+      )}
       <View style={styles.header}>
         <Image source={{ uri: checkIn.userAvatar }} style={styles.avatar} />
         <View style={styles.userInfo}>
@@ -109,11 +123,13 @@ export default function CheckInCard({
             {helpfulLoading ? (
               <ActivityIndicator size="small" color={Colors.primary} />
             ) : (
-              <Ionicons
-                name={helpfulMarked ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={14}
-                color={helpfulMarked ? Colors.primary : Colors.textMuted}
-              />
+              <BounceOnChange trigger={helpfulMarked}>
+                <Ionicons
+                  name={helpfulMarked ? 'thumbs-up' : 'thumbs-up-outline'}
+                  size={14}
+                  color={helpfulMarked ? Colors.primary : Colors.textMuted}
+                />
+              </BounceOnChange>
             )}
             <Text style={[styles.helpfulCount, helpfulMarked && styles.helpfulCountMarked]}>
               {checkIn.helpful} helpful
@@ -127,6 +143,7 @@ export default function CheckInCard({
         )}
       </View>
     </View>
+    </CheckInEntrance>
   );
 }
 
@@ -138,6 +155,27 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  containerHighlighted: {
+    borderColor: Colors.primary,
+    backgroundColor: '#FFFBF4',
+  },
+  newBadge: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    zIndex: 2,
+  },
+  newBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   header: {
     flexDirection: 'row',

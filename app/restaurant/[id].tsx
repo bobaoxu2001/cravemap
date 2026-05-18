@@ -364,17 +364,27 @@ export default function RestaurantDetail() {
             {checkIns.length} verified visit{checkIns.length === 1 ? '' : 's'} · sorted by helpfulness
           </Text>
           {checkIns.length > 0 ? (
-            [...checkIns]
-              .sort((a, b) => b.helpful - a.helpful)
-              .map((ci) => (
-                <CheckInCard
-                  key={ci.id}
-                  checkIn={ci}
-                  onMarkHelpful={handleMarkHelpful}
-                  helpfulLoading={!!helpfulLoading[ci.id]}
-                  helpfulMarked={!!helpfulMarked[ci.id]}
-                />
-              ))
+            (() => {
+              const today = new Date().toISOString().split('T')[0];
+              return [...checkIns]
+                .sort((a, b) => b.helpful - a.helpful)
+                .map((ci, idx) => (
+                  <CheckInCard
+                    key={ci.id}
+                    checkIn={ci}
+                    onMarkHelpful={handleMarkHelpful}
+                    helpfulLoading={!!helpfulLoading[ci.id]}
+                    helpfulMarked={!!helpfulMarked[ci.id]}
+                    // Cards posted today get a sparkle + "NEW" pill so a user
+                    // who just submitted sees their own check-in pop.
+                    highlightNew={ci.date === today}
+                    // Stagger reveals so the feed fades in row-by-row rather
+                    // than as one block. Cap at 6 so very long feeds don't
+                    // wait absurdly long.
+                    entranceDelay={Math.min(idx, 6) * 80}
+                  />
+                ));
+            })()
           ) : (
             <View style={styles.noCheckIns}>
               <Text style={styles.noCheckInsText}>No check-ins yet. Be the first to shape this spot.</Text>
