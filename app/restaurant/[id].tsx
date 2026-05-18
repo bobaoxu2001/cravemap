@@ -11,7 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant, CheckIn } from '../../types';
@@ -44,11 +44,23 @@ export default function RestaurantDetail() {
   const [helpfulMarked, setHelpfulMarked] = useState<Record<string, boolean>>({});
   const [helpfulLoading, setHelpfulLoading] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     Promise.all([getRestaurantById(id), getCheckInsByRestaurantId(id)])
       .then(([r, c]) => { setRestaurant(r ?? null); setCheckIns(c); })
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Re-fetch check-ins when navigating back from the check-in screen so a
+  // just-posted check-in appears immediately with the NEW highlight.
+  useFocusEffect(useCallback(() => {
+    if (!loading) {
+      getCheckInsByRestaurantId(id).then(setCheckIns).catch(() => {});
+    }
+    // We intentionally omit `loading` from deps — this fires once on focus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]));
 
   // Initialize saved state once restaurant ID and userId are known.
   useEffect(() => {

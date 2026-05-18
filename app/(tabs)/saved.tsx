@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -28,7 +29,7 @@ export default function Saved() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
+  const loadSaved = useCallback(() => {
     if (!userId) {
       setLoading(false);
       return;
@@ -42,6 +43,10 @@ export default function Saved() {
       })
       .finally(() => setLoading(false));
   }, [userId]);
+
+  useFocusEffect(useCallback(() => {
+    loadSaved();
+  }, [loadSaved]));
 
   const handleUnsave = async (id: string) => {
     if (!userId) return;

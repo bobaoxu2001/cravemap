@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Alert,
   Share,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { UserProfile } from '../../types';
@@ -50,7 +50,7 @@ export default function Profile() {
   const [redeemSuccess, setRedeemSuccess] = useState(false);
   const [redeemError, setRedeemError] = useState('');
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
     let mounted = true;
     setLoading(true);
     getCurrentProfile()
@@ -67,14 +67,16 @@ export default function Profile() {
         }
       })
       .finally(() => {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
       });
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [authProfile]);
+
+  useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  useFocusEffect(useCallback(() => {
+    loadProfile();
+  }, [loadProfile]));
 
   if (loading) {
     return (

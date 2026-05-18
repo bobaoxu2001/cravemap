@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   Animated,
   View,
@@ -74,7 +75,7 @@ export default function Rewards() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const loadRewards = useCallback(() => {
     if (isSupabaseMode && !userId) {
       setLoading(false);
       return;
@@ -87,6 +88,10 @@ export default function Rewards() {
       .catch(() => setError('Could not load your progress. Please try again.'))
       .finally(() => setLoading(false));
   }, [userId, isSupabaseMode]);
+
+  useFocusEffect(useCallback(() => {
+    loadRewards();
+  }, [loadRewards]));
 
   if (loading) {
     return (
