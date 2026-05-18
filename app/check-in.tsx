@@ -24,6 +24,7 @@ import { useAuth } from '../src/hooks/useAuth';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
 import AnimatedMascot from '../components/AnimatedMascot';
+import Sparkles from '../components/Sparkles';
 
 const DEMO_USER_ID = 'u001';
 
@@ -499,12 +500,15 @@ export default function CheckIn() {
       <Modal visible={showSuccess} transparent animationType="fade">
         <View style={styles.successOverlay}>
           <View style={styles.successCard}>
-            <AnimatedMascot
-              key={String(showSuccess)}
-              persona={persona}
-              size={140}
-              animate
-            />
+            <View style={styles.successMascotBox}>
+              <Sparkles active={showSuccess} />
+              <AnimatedMascot
+                key={String(showSuccess)}
+                persona={persona}
+                size={140}
+                animate
+              />
+            </View>
             <Text style={styles.successTitle}>You&apos;re shaping the map.</Text>
             <Text style={styles.successSub}>
               Your take on {selectedRestaurant?.name} just hit the local-approved feed.
@@ -928,6 +932,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     width: '100%',
+  },
+  successMascotBox: {
+    width: 200,
+    height: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   successTitle: {
     ...Typography.h1,

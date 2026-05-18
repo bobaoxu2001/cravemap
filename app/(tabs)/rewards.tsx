@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
+  Animated,
   View,
   Text,
   ScrollView,
@@ -17,6 +18,7 @@ import { getTastePersona } from '../../src/services/profile';
 import { useAuth } from '../../src/hooks/useAuth';
 import ProgressBar from '../../components/ProgressBar';
 import AnimatedMascot from '../../components/AnimatedMascot';
+import Sparkles from '../../components/Sparkles';
 
 const DEMO_USER_ID = 'u001';
 
@@ -43,6 +45,23 @@ const rewards = [
     borderColor: '#7B9EFF',
   },
 ];
+
+// Pulsing radial halo behind the mascot when all Founding Scout tasks are
+// complete. Soft warm tone (matches the mascot card background family).
+function Glow() {
+  const opacity = useRef(new Animated.Value(0.25)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.55, duration: 1100, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.25, duration: 1100, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+  return <Animated.View pointerEvents="none" style={[styles.glow, { opacity }]} />;
+}
 
 export default function Rewards() {
   const router = useRouter();
@@ -193,12 +212,16 @@ export default function Rewards() {
 
           {/* Mascot hero reward */}
           <View style={styles.mascotCard}>
-            <AnimatedMascot
-              persona={persona}
-              size={120}
-              animate
-              pulse={completedCount === progress.totalCount}
-            />
+            <View style={styles.mascotContainer}>
+              {completedCount === progress.totalCount && <Glow />}
+              <Sparkles active={completedCount === progress.totalCount} />
+              <AnimatedMascot
+                persona={persona}
+                size={120}
+                animate
+                pulse={completedCount === progress.totalCount}
+              />
+            </View>
             <Text style={styles.mascotTitle}>The 好吃GO Dango Mascot Plush</Text>
             <Text style={styles.mascotDesc}>
               Limited edition. Only 50 plushies will exist. Founding Food Scouts get lottery entry — no purchase needed.
@@ -327,6 +350,24 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: Colors.green,
     paddingLeft: Spacing.sm,
+  },
+  mascotContainer: {
+    width: 180,
+    height: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xs,
+  },
+  glow: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: '#FFB347',
+    top: '50%',
+    left: '50%',
+    marginLeft: -80,
+    marginTop: -80,
   },
   mascotCard: {
     backgroundColor: '#FFF0F5',
