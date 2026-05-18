@@ -13,6 +13,8 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="restaurant/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="check-in" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="my-check-ins" options={{ presentation: 'card' }} />
+        <Stack.Screen name="redeem" options={{ presentation: 'modal' }} />
       </Stack>
     </AuthProvider>
   );

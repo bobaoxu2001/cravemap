@@ -102,19 +102,25 @@ async function createFallbackProfile(userId: string): Promise<UserProfile> {
 
 export async function getProfileById(userId: string): Promise<UserProfile | null> {
   const client = requireClient();
-  const { data, error } = await client
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
+  const [profileResult, verifiedResult] = await Promise.all([
+    client.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    // Cheap EXISTS — just need the count, not the rows.
+    client
+      .from('check_ins')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('location_verified', true)
+      .limit(1),
+  ]);
 
-  if (error) {
-    throw new Error(getErrorMessage(error.message));
+  if (profileResult.error) {
+    throw new Error(getErrorMessage(profileResult.error.message));
   }
-  if (!data) {
+  if (!profileResult.data) {
     return createFallbackProfile(userId);
   }
-  return profileFromRow(data as ProfileRow);
+  const verifiedCheckIn = (verifiedResult.count ?? 0) > 0;
+  return profileFromRow(profileResult.data as ProfileRow, { verifiedCheckIn });
 }
 
 export async function getCurrentProfile(): Promise<UserProfile | null> {

@@ -195,8 +195,10 @@ export default function Profile() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
-              <Text style={styles.statNum}>{profile.badges.length}</Text>
-              <Text style={styles.statLabel}>Badges</Text>
+              <Text style={[styles.statNum, profile.foundingScoutProgress.verifiedCheckIn && { color: Colors.green }]}>
+                {profile.foundingScoutProgress.verifiedCheckIn ? '✓' : '—'}
+              </Text>
+              <Text style={styles.statLabel}>Verified</Text>
             </View>
           </View>
         </View>

@@ -4,8 +4,13 @@ import type { CheckInRow, ProfileRow, RestaurantRow } from './types';
 
 const FALLBACK_AVATAR = 'https://picsum.photos/seed/cravemap_user/200/200';
 
-export function profileFromRow(row: ProfileRow): UserProfile {
+export function profileFromRow(
+  row: ProfileRow,
+  /** Derived from a separate query since `profiles` doesn't store this flag. */
+  extra?: { verifiedCheckIn?: boolean }
+): UserProfile {
   const tastePassportComplete = Boolean(row.taste_passport_complete);
+  const verifiedCheckIn = extra?.verifiedCheckIn ?? false;
   return {
     id: row.id,
     name: row.name?.trim() || 'New Foodie',
@@ -26,7 +31,7 @@ export function profileFromRow(row: ProfileRow): UserProfile {
     foundingScoutProgress: {
       tastePassport: tastePassportComplete,
       threeCheckIns: (row.check_in_count ?? 0) >= 3,
-      verifiedCheckIn: false,
+      verifiedCheckIn,
       twoInvites: (row.invite_count ?? 0) >= 2,
     },
   };
