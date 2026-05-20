@@ -9,25 +9,32 @@ const MOCK_MARKED = new Set<string>();
 const MOCK_COUNTS = new Map<string, number>();
 const MOCK_USER_ID = 'u001';
 
+// In-memory accumulator for check-ins created during this mock session.
+// These are merged into query results so newly-posted check-ins appear
+// in the feed and My Check-ins without requiring real DB persistence.
+const pendingCheckIns: CheckIn[] = [];
+
+function allCheckIns(): CheckIn[] {
+  return [...mockCheckIns, ...pendingCheckIns];
+}
+
 export function getAllCheckIns(): Promise<CheckIn[]> {
-  return Promise.resolve(mockCheckIns);
+  return Promise.resolve(allCheckIns());
 }
 
 export function getCheckInsByRestaurantId(
   restaurantId: string
 ): Promise<CheckIn[]> {
   return Promise.resolve(
-    mockCheckIns.filter((c) => c.restaurantId === restaurantId)
+    allCheckIns().filter((c) => c.restaurantId === restaurantId)
   );
 }
 
 export function getCheckInsByUserId(userId: string): Promise<CheckIn[]> {
-  return Promise.resolve(mockCheckIns.filter((c) => c.userId === userId));
+  return Promise.resolve(allCheckIns().filter((c) => c.userId === userId));
 }
 
 export function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInResult> {
-  // Real persistence comes with Supabase wiring. For now we construct
-  // and return a new CheckIn without mutating mockCheckIns.
   const checkIn: CreateCheckInResult = {
     id: `c_${Date.now()}`,
     restaurantId: input.restaurantId,
@@ -47,6 +54,8 @@ export function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInR
     orderedItems: input.orderedItems,
     wouldReturn: input.wouldReturn,
   };
+  // Persist within the JS runtime so the feed reflects the new post.
+  pendingCheckIns.unshift(checkIn);
   return Promise.resolve(checkIn);
 }
 
@@ -66,7 +75,7 @@ export function markHelpful(checkInId: string): Promise<MarkHelpfulResult> {
   const key = `${MOCK_USER_ID}:${checkInId}`;
   const baseCount =
     MOCK_COUNTS.get(checkInId) ??
-    mockCheckIns.find((c) => c.id === checkInId)?.helpful ??
+    allCheckIns().find((c) => c.id === checkInId)?.helpful ??
     0;
 
   if (MOCK_MARKED.has(key)) {

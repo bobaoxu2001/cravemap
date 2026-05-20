@@ -23,8 +23,6 @@ import { getTastePersona } from '../src/services/profile';
 import { useAuth } from '../src/hooks/useAuth';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
-import AnimatedMascot from '../components/AnimatedMascot';
-import Sparkles from '../components/Sparkles';
 
 const DEMO_USER_ID = 'u001';
 
@@ -397,6 +395,7 @@ export default function CheckIn() {
             />
 
             <Text style={styles.inputLabel}>Was it worth it?</Text>
+            <Text style={styles.inputHint}>Helps others decide. Shown next to your check-in.</Text>
             <View style={styles.hypeOptions}>
               {hypeOptions.map((opt) => (
                 <TouchableOpacity
@@ -496,46 +495,41 @@ export default function CheckIn() {
         </TouchableOpacity>
       </View>
 
-      {/* Success Modal */}
+      {/* Success Modal — minimalist confirmation. Mascot + sparkles removed;
+          single line + single CTA. Points/verification still surface as
+          quiet supporting text. */}
       <Modal visible={showSuccess} transparent animationType="fade">
         <View style={styles.successOverlay}>
           <View style={styles.successCard}>
-            <View style={styles.successMascotBox}>
-              <Sparkles active={showSuccess} />
-              <AnimatedMascot
-                key={String(showSuccess)}
-                persona={persona}
-                size={140}
-                animate
-              />
-            </View>
-            <Text style={styles.successTitle}>You&apos;re shaping the map.</Text>
+            <Ionicons
+              name="checkmark-circle"
+              size={48}
+              color={Colors.green}
+              style={{ marginBottom: Spacing.sm }}
+            />
+            <Text style={styles.successTitle}>Check-in posted</Text>
             <Text style={styles.successSub}>
-              Your take on {selectedRestaurant?.name} just hit the local-approved feed.
+              {selectedRestaurant?.name}
             </Text>
             {submitWarning ? (
-              <View style={styles.warningBanner}>
-                <Ionicons name="warning-outline" size={16} color={Colors.accent} />
-                <Text style={styles.warningBannerText}>{submitWarning}</Text>
-              </View>
+              <Text style={styles.warningBannerText}>{submitWarning}</Text>
             ) : null}
-            <View style={styles.pointsRow}>
-              <Text style={styles.pointsEarned}>+200 points earned</Text>
-              {locationStatus === 'verified' && (
-                <Text style={styles.pointsBonus}>+50 verification bonus</Text>
-              )}
-            </View>
             <Text style={styles.scoutProgress}>
-              Founding Scout progress: 2/3 check-ins done
+              +200 points{locationStatus === 'verified' ? ' · +50 verified bonus' : ''}
             </Text>
             <TouchableOpacity
               style={styles.successBtn}
               onPress={() => {
                 setShowSuccess(false);
-                router.replace('/(tabs)/home');
+                // Pass a flag so Home can show a brief "+200 pts" toast,
+                // connecting the action (check-in) to the reward (Scout pts).
+                router.replace({
+                  pathname: '/(tabs)/home',
+                  params: { posted: '1', bonus: locationStatus === 'verified' ? '1' : '0' },
+                });
               }}
             >
-              <Text style={styles.successBtnText}>Back to Home</Text>
+              <Text style={styles.successBtnText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -742,6 +736,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: Spacing.sm,
   },
+  inputHint: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginBottom: Spacing.xs,
+  },
   reviewInput: {
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.md,
@@ -933,14 +932,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     width: '100%',
   },
-  successMascotBox: {
-    width: 200,
-    height: 160,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   successTitle: {
-    ...Typography.h1,
+    ...Typography.h2,
     color: Colors.text,
   },
   successSub: {
@@ -948,36 +941,10 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  pointsRow: {
-    gap: Spacing.xs,
-    alignItems: 'center',
-  },
-  pointsEarned: {
-    ...Typography.label,
-    color: Colors.green,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  pointsBonus: {
-    ...Typography.label,
-    color: Colors.accent,
-    fontWeight: '600',
-  },
   scoutProgress: {
     ...Typography.caption,
     color: Colors.textMuted,
     textAlign: 'center',
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.xs,
-    backgroundColor: '#FFF8E1',
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.accent,
   },
   warningBannerText: {
     ...Typography.caption,

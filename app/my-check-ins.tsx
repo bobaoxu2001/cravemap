@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,19 @@ export default function MyCheckIns() {
 
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+
+  const onRefresh = useCallback(() => {
+    const id = userId ?? DEMO_USER_ID;
+    if (isSupabaseMode && !userId) return;
+    setRefreshing(true);
+    setError('');
+    getCheckInsByUserId(id)
+      .then(setCheckIns)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load check-ins.'))
+      .finally(() => setRefreshing(false));
+  }, [userId, isSupabaseMode]);
 
   const load = useCallback(() => {
     if (isSupabaseMode && !userId) {
@@ -41,21 +53,32 @@ export default function MyCheckIns() {
       .finally(() => setLoading(false));
   }, [userId, isSupabaseMode]);
 
-  useEffect(() => { load(); }, [load]);
+  // `useFocusEffect` fires on initial focus AND every re-focus, so a separate
+  // mount `useEffect` would just double-fetch on first render.
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Check-ins</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">
+          My Check-ins{checkIns.length > 0 ? ` (${checkIns.length})` : ''}
+        </Text>
         <View style={styles.headerRight} />
       </View>
 
       {loading && (
-        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm }}>
+          <ActivityIndicator color={Colors.primary} />
+          <Text style={styles.emptySubtitle}>Loading your check-ins…</Text>
+        </View>
       )}
 
       {!loading && isSupabaseMode && !userId && (
@@ -90,17 +113,21 @@ export default function MyCheckIns() {
           renderItem={({ item }) => <CheckInCard checkIn={item} />}
           contentContainerStyle={checkIns.length === 0 ? styles.emptyContainer : styles.list}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="camera-outline" size={48} color={Colors.textMuted} />
               <Text style={styles.emptyTitle}>No check-ins yet</Text>
-              <Text style={styles.emptySubtitle}>Start shaping your food map.</Text>
+              <Text style={styles.emptySubtitle}>
+                A check-in is a short review you post after visiting a spot — photos, taste tags, and a "worth it?" rating. They help others find real local picks.
+              </Text>
               <TouchableOpacity
                 style={styles.actionBtn}
                 onPress={() => router.push('/check-in')}
                 activeOpacity={0.85}
               >
-                <Text style={styles.actionBtnText}>Post a Check-in</Text>
+                <Text style={styles.actionBtnText}>Post your first check-in</Text>
               </TouchableOpacity>
             </View>
           }

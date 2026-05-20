@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
   unsaveRestaurant,
 } from '../../src/services/saved';
 import { useAuth } from '../../src/hooks/useAuth';
+import { getBlockedUserIds } from '../../src/services/blocks';
 import TagChip from '../../components/TagChip';
 import CheckInCard from '../../components/CheckInCard';
 
@@ -35,6 +36,8 @@ export default function RestaurantDetail() {
   const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
 
   const [saved, setSaved] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveLoading, setSaveLoading] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -43,8 +46,13 @@ export default function RestaurantDetail() {
   // Track per-check-in marked-helpful + in-flight state for this session.
   const [helpfulMarked, setHelpfulMarked] = useState<Record<string, boolean>>({});
   const [helpfulLoading, setHelpfulLoading] = useState<Record<string, boolean>>({});
+  // IDs of users the current user has blocked — filtered out of the check-in feed.
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(() => {
+    // Load blocked IDs in parallel so we can filter them from the feed.
+    void getBlockedUserIds().then((ids) => setBlockedUserIds(new Set(ids)));
+
     Promise.all([getRestaurantById(id), getCheckInsByRestaurantId(id)])
       .then(([r, c]) => {
         setRestaurant(r ?? null);
@@ -107,6 +115,14 @@ export default function RestaurantDetail() {
     const next = !saved;
     setSaved(next);
     setSaveLoading(true);
+
+    // Show a brief inline toast so the action ↔ result connection is obvious.
+    // The bookmark color change alone is easy to miss; copy spells out the
+    // next-step ("view in Saved tab").
+    setToastMsg(next ? 'Saved — view in the Saved tab' : 'Removed from Saved');
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMsg(null), 2200);
+
     try {
       if (next) {
         await saveRestaurant(userId, id);
@@ -115,6 +131,7 @@ export default function RestaurantDetail() {
       }
     } catch {
       setSaved(!next); // rollback on failure
+      setToastMsg('Could not save. Try again.');
     } finally {
       setSaveLoading(false);
     }
@@ -173,7 +190,10 @@ export default function RestaurantDetail() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm }}>
+          <ActivityIndicator color={Colors.primary} />
+          <Text style={{ ...Typography.caption, color: Colors.textMuted }}>Loading restaurant…</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -201,20 +221,31 @@ export default function RestaurantDetail() {
   return (
     <View style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Image carousel */}
+        {/* Image carousel with explicit "1 / N" counter — small white dots
+            are easy to miss, so users may not realize there are more photos. */}
         <View style={styles.imageContainer}>
           <Image source={{ uri: restaurant.images[imageIndex] }} style={styles.image} />
-          {/* Dot indicator */}
           {restaurant.images.length > 1 && (
-            <View style={styles.dots}>
-              {restaurant.images.map((_, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[styles.dot, i === imageIndex && styles.dotActive]}
-                  onPress={() => setImageIndex(i)}
-                />
-              ))}
-            </View>
+            <>
+              <View style={styles.imageCounter}>
+                <Text style={styles.imageCounterText}>
+                  {imageIndex + 1} / {restaurant.images.length}
+                </Text>
+              </View>
+              <View style={styles.dots}>
+                {restaurant.images.map((_, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.dot, i === imageIndex && styles.dotActive]}
+                    onPress={() => setImageIndex(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Photo ${i + 1} of ${restaurant.images.length}`}
+                    accessibilityState={{ selected: i === imageIndex }}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  />
+                ))}
+              </View>
+            </>
           )}
         </View>
 
@@ -223,6 +254,9 @@ export default function RestaurantDetail() {
           <TouchableOpacity
             style={styles.overlayBtn}
             onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            accessibilityHint="Returns to the previous screen"
           >
             <Ionicons name="chevron-back" size={22} color={Colors.text} />
           </TouchableOpacity>
@@ -230,6 +264,9 @@ export default function RestaurantDetail() {
             style={styles.overlayBtn}
             onPress={handleToggleSave}
             disabled={saveLoading}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? 'Remove from saved' : 'Save restaurant'}
+            accessibilityState={{ disabled: saveLoading, selected: saved }}
           >
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
@@ -241,41 +278,27 @@ export default function RestaurantDetail() {
 
         {/* Main content card */}
         <View style={styles.contentCard}>
-          {/* Name & basic info */}
+          {/* Minimalist header: name + meta + a single "Closed" pill (open
+              is the default; no positive pill needed). Match%/local%/visits
+              stats consolidated into one quiet sub-line below. */}
           <View style={styles.nameRow}>
             <View style={styles.nameBlock}>
               <Text style={styles.name}>{restaurant.name}</Text>
-              <Text style={styles.sub}>{restaurant.neighborhood} · {restaurant.cuisine} · {restaurant.price}</Text>
+              <Text style={styles.sub}>{restaurant.cuisine} · {restaurant.price} · {restaurant.neighborhood}</Text>
             </View>
-            <View style={[styles.openBadge, { backgroundColor: restaurant.isOpen ? '#E8F5EE' : '#F5F5F5' }]}>
-              <Text style={[styles.openText, { color: restaurant.isOpen ? Colors.green : Colors.textMuted }]}>
-                {restaurant.isOpen ? 'Open' : 'Closed'}
-              </Text>
-            </View>
+            {!restaurant.isOpen && (
+              <View style={[styles.openBadge, { backgroundColor: '#F5F5F5' }]}>
+                <Text style={[styles.openText, { color: Colors.textMuted }]}>Closed</Text>
+              </View>
+            )}
           </View>
 
-          {/* Trust Strip */}
-          <View style={styles.trustStrip}>
-            <View style={styles.trustStat}>
-              <Text style={[styles.trustStatValue, { color: Colors.green }]}>{restaurant.tasteMatchPercent}%</Text>
-              <Text style={styles.trustStatLabel}>Taste Match</Text>
-              <Text style={styles.trustStatSub}>for you</Text>
-            </View>
-            <View style={styles.trustStat}>
-              <Text style={[styles.trustStatValue, { color: Colors.accent }]}>{restaurant.localApprovedPercent}%</Text>
-              <Text style={styles.trustStatLabel}>Local Trust</Text>
-              <Text style={styles.trustStatSub}>of locals approve</Text>
-            </View>
-            <View style={styles.trustStat}>
-              <Text style={[styles.trustStatValue, { color: Colors.primary }]}>{restaurant.verifiedCheckIns.toLocaleString()}</Text>
-              <Text style={styles.trustStatLabel}>Verified Visits</Text>
-              <Text style={styles.trustStatSub}>real check-ins</Text>
-            </View>
-          </View>
-
-          <View style={styles.reasonCard}>
-            <Text style={styles.reasonText}>💡 {restaurant.recommendationReason}</Text>
-          </View>
+          {/* Each number is labelled with WHAT it measures, so users don't
+              have to guess. "match for you" = personalized; "local approve" =
+              social proof from neighbors; "visits" = real check-in volume. */}
+          <Text style={styles.statsLine}>
+            {restaurant.tasteMatchPercent}% match for you · {restaurant.localApprovedPercent}% locals approve · {restaurant.verifiedCheckIns.toLocaleString()} verified visits
+          </Text>
 
           <View style={styles.divider} />
 
@@ -286,6 +309,7 @@ export default function RestaurantDetail() {
             <>
               <View style={styles.divider} />
               <Text style={styles.sectionTitle}>Local intel</Text>
+              <Text style={styles.sectionSub}>Tips from people who eat here regularly</Text>
 
               {restaurant.insiderTip && (
                 <View style={styles.tipCard}>
@@ -299,17 +323,11 @@ export default function RestaurantDetail() {
 
               {restaurant.whatLocalsOrder && restaurant.whatLocalsOrder.length > 0 && (
                 <View style={styles.localsBlock}>
-                  <Text style={styles.localsHeader}>🍜 What locals order</Text>
-                  <Text style={styles.localsSub}>Most-ordered by people who live nearby</Text>
+                  <Text style={styles.localsHeader}>What locals order</Text>
                   {restaurant.whatLocalsOrder.map((item, idx) => (
                     <View key={item} style={styles.localsRow}>
                       <Text style={styles.localsNum}>{idx + 1}.</Text>
                       <Text style={styles.localsItem}>{item}</Text>
-                      {idx === 0 && (
-                        <View style={styles.mustTry}>
-                          <Text style={styles.mustTryText}>must-try</Text>
-                        </View>
-                      )}
                     </View>
                   ))}
                 </View>
@@ -317,10 +335,7 @@ export default function RestaurantDetail() {
 
               {restaurant.bestTimeToGo && (
                 <View style={styles.bestTimeCard}>
-                  <View style={styles.bestTimeHeader}>
-                    <View style={styles.greenDot} />
-                    <Text style={styles.bestTimeLabel}>⏰ Best time to go · pro tip</Text>
-                  </View>
+                  <Text style={styles.bestTimeLabel}>Best time to go</Text>
                   <Text style={styles.bestTimeBody}>{restaurant.bestTimeToGo}</Text>
                 </View>
               )}
@@ -329,15 +344,9 @@ export default function RestaurantDetail() {
 
           <View style={styles.divider} />
 
-          {/* Tags */}
-          <Text style={styles.sectionTitle}>Tags</Text>
-          <View style={styles.tagsWrap}>
-            {restaurant.tags.map((tag) => (
-              <TagChip key={tag} label={tag} variant="primary" size="md" />
-            ))}
-          </View>
-
-          <View style={styles.divider} />
+          {/* Tags section dropped — cuisine + price + neighborhood in the
+              header line + the Best-for column already convey the same
+              information. Tags chip row was visual repetition. */}
 
           {/* Info grid */}
           <View style={styles.infoGrid}>
@@ -389,15 +398,13 @@ export default function RestaurantDetail() {
 
           <View style={styles.divider} />
 
-          {/* Check-in Feed */}
-          <Text style={styles.sectionTitle}>From people who&apos;ve actually been</Text>
-          <Text style={styles.checkInSub}>
-            {checkIns.length} verified visit{checkIns.length === 1 ? '' : 's'} · sorted by helpfulness
-          </Text>
+          {/* Check-in Feed — wordy subtitle dropped; helpfulness sort is implicit */}
+          <Text style={styles.sectionTitle}>Check-ins ({checkIns.length})</Text>
           {checkIns.length > 0 ? (
             (() => {
               const today = new Date().toISOString().split('T')[0];
-              return [...checkIns]
+              const visible = checkIns.filter((ci) => !blockedUserIds.has(ci.userId));
+              return visible
                 .sort((a, b) => b.helpful - a.helpful)
                 .map((ci, idx) => (
                   <CheckInCard
@@ -406,19 +413,19 @@ export default function RestaurantDetail() {
                     onMarkHelpful={handleMarkHelpful}
                     helpfulLoading={!!helpfulLoading[ci.id]}
                     helpfulMarked={!!helpfulMarked[ci.id]}
-                    // Cards posted today get a sparkle + "NEW" pill so a user
-                    // who just submitted sees their own check-in pop.
                     highlightNew={ci.date === today}
-                    // Stagger reveals so the feed fades in row-by-row rather
-                    // than as one block. Cap at 6 so very long feeds don't
-                    // wait absurdly long.
                     entranceDelay={Math.min(idx, 6) * 80}
+                    onBlocked={(userId) => {
+                      setBlockedUserIds((prev) => new Set([...prev, userId]));
+                    }}
                   />
                 ));
             })()
           ) : (
             <View style={styles.noCheckIns}>
-              <Text style={styles.noCheckInsText}>No check-ins yet. Be the first to shape this spot.</Text>
+              <Text style={styles.noCheckInsText}>
+                No check-ins yet. Tap "Check in" below to share photos and a quick review — yours will be the first.
+              </Text>
             </View>
           )}
 
@@ -427,33 +434,58 @@ export default function RestaurantDetail() {
         </View>
       </ScrollView>
 
-      {/* Fixed action bar */}
+      {/* Inline toast — appears above the action bar after Save/Unsave.
+          Auto-dismisses in 2.2s. */}
+      {toastMsg && (
+        <View style={styles.toast} pointerEvents="none">
+          <Ionicons name="checkmark-circle" size={16} color={Colors.green} />
+          <Text style={styles.toastText}>{toastMsg}</Text>
+        </View>
+      )}
+
+      {/* Fixed action bar — each icon now carries a tiny label so users
+          don't have to guess what each button does (camera vs. compass icon
+          is not self-explanatory). */}
       <View style={styles.actionBar}>
         <TouchableOpacity
-          style={styles.actionIconBtn}
+          style={styles.actionIconCol}
           onPress={handleToggleSave}
           disabled={saveLoading}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? 'Remove from saved' : 'Save restaurant'}
+          accessibilityState={{ disabled: saveLoading, selected: saved }}
         >
-          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={saved ? Colors.primary : Colors.text} />
+          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? Colors.primary : Colors.text} />
+          <Text style={[styles.actionIconLabel, saved && { color: Colors.primary }]}>Save</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, styles.actionBtnPrimary]}
           onPress={() => router.push('/check-in')}
+          accessibilityRole="button"
+          accessibilityLabel="Check in"
+          accessibilityHint={`Open the check-in flow for ${restaurant.name}`}
         >
           <Ionicons name="camera-outline" size={20} color="#fff" />
-          <View>
-            <Text style={[styles.actionBtnText, { color: '#fff' }]}>Check In</Text>
-            <Text style={styles.actionBtnIncentive}>+200 pts</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionIconBtn} onPress={openMaps}>
-          <Ionicons name="navigate-outline" size={22} color={Colors.text} />
+          <Text style={[styles.actionBtnText, { color: '#fff' }]}>Check in</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.actionIconBtn}
-          onPress={() => Alert.alert('Share', `Share ${restaurant.name} with friends?`)}
+          style={styles.actionIconCol}
+          onPress={openMaps}
+          accessibilityRole="button"
+          accessibilityLabel="Directions"
+          accessibilityHint={`Open ${restaurant.name} in the Maps app`}
         >
-          <Ionicons name="share-outline" size={22} color={Colors.text} />
+          <Ionicons name="navigate-outline" size={20} color={Colors.text} />
+          <Text style={styles.actionIconLabel}>Directions</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionIconCol}
+          onPress={() => Alert.alert('Share', `Share ${restaurant.name} with friends?`)}
+          accessibilityRole="button"
+          accessibilityLabel={`Share ${restaurant.name}`}
+        >
+          <Ionicons name="share-outline" size={20} color={Colors.text} />
+          <Text style={styles.actionIconLabel}>Share</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -499,6 +531,20 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     flexDirection: 'row',
     gap: 6,
+  },
+  imageCounter: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  imageCounterText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '500',
   },
   dot: {
     width: 7,
@@ -559,6 +605,11 @@ const styles = StyleSheet.create({
   sub: {
     ...Typography.body,
     color: Colors.textSecondary,
+  },
+  statsLine: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginTop: Spacing.xs,
   },
   openBadge: {
     borderRadius: BorderRadius.full,
@@ -628,9 +679,11 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
-  tagsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  sectionSub: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginTop: -Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   infoGrid: {
     gap: Spacing.sm,
@@ -671,55 +724,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
     flex: 1,
     lineHeight: 18,
-  },
-  trustStrip: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  trustStat: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm,
-    alignItems: 'center',
-  },
-  trustStatValue: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  trustStatLabel: {
-    ...Typography.caption,
-    color: Colors.text,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  trustStatSub: {
-    fontSize: 10,
-    color: Colors.textMuted,
-  },
-  reasonCard: {
-    backgroundColor: Colors.secondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  reasonText: {
-    ...Typography.body,
-    color: Colors.text,
-    lineHeight: 20,
-  },
-  checkInSub: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginBottom: Spacing.sm,
-    marginTop: -Spacing.xs,
-  },
-  actionBtnIncentive: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.85)',
-    fontWeight: '600',
   },
   bulletItem: {
     flexDirection: 'row',
@@ -863,6 +867,31 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingBottom: 28,
   },
+  toast: {
+    position: 'absolute',
+    bottom: 108,
+    left: Spacing.md,
+    right: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  toastText: {
+    ...Typography.label,
+    color: Colors.text,
+    fontWeight: '500',
+  },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -879,12 +908,16 @@ const styles = StyleSheet.create({
     ...Typography.label,
     fontWeight: '600',
   },
-  actionIconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.border,
+  actionIconCol: {
+    width: 56,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 6,
+  },
+  actionIconLabel: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
 });

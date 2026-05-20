@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  TextInput,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant, UserProfile } from '../../types';
@@ -17,22 +17,19 @@ import { getAllRestaurants } from '../../src/services/restaurants';
 import { getCurrentProfile } from '../../src/services/profile';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
-import RestaurantCard from '../../components/RestaurantCard';
 
 const CITIES = ['New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
 
+// Minimalist pass: reduced from 11 sections → 3 to lower cognitive load.
+// Full discovery (spicy, late-night, hidden gems, etc.) lives on the Explore tab,
+// where users can filter intentionally instead of scrolling past 8 unread shelves.
+// Subtitles tell the user WHY a section exists, not just what's in it.
+// "Trending" = social proof of the moment; "For your taste" = personalized;
+// "Local-approved" = neighborhood-level trust.
 const sections = [
-  { key: 'trending-week', emoji: '🔥', title: 'Trending this week', subtitle: (city: string) => `What people in ${city} are talking about right now` },
-  { key: 'local-approved', emoji: '🏘️', title: 'Local-approved', subtitle: () => 'What your neighbors actually eat — not what tourists post' },
-  { key: 'taste-match', emoji: '👤', title: 'People with your taste', subtitle: () => '247 Spicy Adventurers in NYC saved these this month' },
-  { key: 'actually-spicy', emoji: '🌶️', title: 'Actually spicy', subtitle: () => 'Cleared by scouts with verified spice tolerance' },
-  { key: 'hidden-by-algo', emoji: '🫥', title: 'Hidden by the algorithm', subtitle: () => "Locals know. Algorithms don't. Yet." },
-  { key: 'anti-hype', emoji: '🤫', title: 'Worth-it picks', subtitle: () => 'Quietly excellent. No viral video required.' },
-  { key: 'culture-approved', emoji: '🍜', title: 'Culture-approved', subtitle: () => 'Validated by people from where the food is from' },
-  { key: 'diet-approved', emoji: '🥗', title: 'Diet-approved', subtitle: () => 'Matches your dietary preferences' },
-  { key: 'late-night', emoji: '🌙', title: 'Late-night eats', subtitle: () => 'Open past 10. The night-shift crew approves.' },
-  { key: 'student-favorites', emoji: '📚', title: 'Student favorites', subtitle: () => '$10 fills you up. The graduate student diet.' },
-  { key: 'hidden-gems', emoji: '💎', title: 'Hidden gems', subtitle: () => '<500 check-ins, but the right 500' },
+  { key: 'taste-match',    emoji: '', title: 'For your taste',     subtitle: () => 'Matches your taste passport' },
+  { key: 'trending-week',  emoji: '', title: 'Trending this week', subtitle: (city: string) => `Most-saved in ${city} this week` },
+  { key: 'local-approved', emoji: '', title: 'Local-approved',     subtitle: () => 'Highest approval from people who live nearby' },
 ];
 
 function getGreeting() {
@@ -60,51 +57,102 @@ function getRestaurantsForSection(key: string, city: string, allRestaurants: Res
 
 export default function Home() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ posted?: string; bonus?: string }>();
   const [selectedCity, setSelectedCity] = useState('New York City');
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    Promise.all([getAllRestaurants(), getCurrentProfile()])
+  const loadData = (mode: 'initial' | 'refresh' = 'initial') => {
+    return Promise.all([getAllRestaurants(), getCurrentProfile()])
       .then(([r, p]) => { setRestaurants(r); setProfile(p); })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (mode === 'initial') setLoading(false);
+        else setRefreshing(false);
+      });
+  };
+
+  useEffect(() => { loadData('initial'); }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData('refresh');
+  };
+
+  // Show a brief toast when the user lands here after a successful check-in.
+  // Connects the action → reward in plain language ("+200 pts toward Scout").
+  useEffect(() => {
+    if (params.posted === '1') {
+      const bonus = params.bonus === '1' ? ' · +50 verified bonus' : '';
+      setToastMsg(`Check-in posted · +200 pts toward Founding Scout${bonus}`);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToastMsg(null), 2800);
+    }
+  }, [params.posted, params.bonus]);
+
+  // Clear the pending toast timer on unmount so we don't setState on an
+  // unmounted component if the user navigates away during the 2.8s window.
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+        toastTimer.current = null;
+      }
+    };
   }, []);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm }}>
+          <ActivityIndicator color={Colors.primary} />
+          <Text style={{ ...Typography.caption, color: Colors.textMuted }}>Finding spots in your city…</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Header */}
+      {/* Post-action toast — fires when arriving from check-in/save flows */}
+      {toastMsg && (
+        <View style={styles.toast} pointerEvents="none">
+          <Ionicons name="checkmark-circle" size={16} color={Colors.green} />
+          <Text style={styles.toastText}>{toastMsg}</Text>
+        </View>
+      )}
+
+      {/* Minimalist header — logo + city pill only. Notification bell dropped
+          (not functional). Persona chip + search bar dropped (decoration). */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.logoSm}>好吃GO</Text>
+          <Text style={styles.logoSm} accessibilityRole="header">好吃GO</Text>
           <Text style={styles.greeting}>{getGreeting()}, {profile?.name.split(' ')[0] ?? 'there'}</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.citySelector}
             onPress={() => setCityDropdownOpen(!cityDropdownOpen)}
+            accessibilityRole="button"
+            accessibilityLabel={`City: ${selectedCity}`}
+            accessibilityHint="Opens the city picker"
+            accessibilityState={{ expanded: cityDropdownOpen }}
           >
             <Text style={styles.citySelectorText}>{selectedCity.split(' ')[0]}</Text>
-            <Ionicons name="chevron-down" size={14} color={Colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.notifBtn}>
-            <Ionicons name="notifications-outline" size={22} color={Colors.text} />
+            <Ionicons name="chevron-down" size={14} color={Colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* City dropdown */}
+      {/* City dropdown — opens with a one-line hint explaining the switch
+          changes ALL section content below, not just the trending row. */}
       {cityDropdownOpen && (
         <View style={styles.dropdown}>
+          <Text style={styles.dropdownHint}>Switch city to see different local picks</Text>
           {CITIES.map((c) => (
             <TouchableOpacity
               key={c}
@@ -117,63 +165,38 @@ export default function Home() {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Persona chip */}
-        <TouchableOpacity
-          style={styles.personaChip}
-          onPress={() => router.push('/profile')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.personaChipText}>
-            🌶️ Spicy Adventurer · {profile?.tastePreferences.length ?? 0} cuisines saved
-          </Text>
-        </TouchableOpacity>
-
-        {/* Search bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search restaurants, cuisines..."
-              placeholderTextColor={Colors.textMuted}
-              editable={false}
-            />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
+      >
+        {/* First-time guidance — shown only when the user has no activity
+            yet. Derived from profile counters (no AsyncStorage needed), so it
+            disappears the moment they save or check-in. */}
+        {profile && profile.checkInCount === 0 && profile.savedCount === 0 && (
+          <View style={styles.firstTimeHint}>
+            <Ionicons name="sparkles-outline" size={16} color={Colors.primary} />
+            <Text style={styles.firstTimeHintText}>
+              Tap any restaurant to see details · Bookmark to save · Check in after a visit
+            </Text>
           </View>
-        </View>
+        )}
 
-        {/* Check-in CTA */}
+        {/* Single primary CTA — the most important action on this screen.
+            Replaces the larger banner + persona chip + (non-functional) search bar
+            + hero section. Discovery happens in the section shelves below. */}
         <TouchableOpacity
-          style={styles.checkInBanner}
+          style={styles.checkInBtn}
           onPress={() => router.push('/check-in')}
-          activeOpacity={0.85}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel="Post a check-in"
+          accessibilityHint="Opens the check-in modal to share a recent visit"
         >
-          <View>
-            <Text style={styles.checkInTitle}>Had a great meal?</Text>
-            <Text style={styles.checkInSub}>Post a check-in and earn Founding Scout points</Text>
-          </View>
-          <View style={styles.checkInBtn}>
-            <Text style={styles.checkInBtnText}>+ Check In</Text>
-          </View>
+          <Ionicons name="add" size={18} color="#fff" />
+          <Text style={styles.checkInBtnText}>Post a check-in</Text>
         </TouchableOpacity>
-
-        {/* Hero featured pick */}
-        {(() => {
-          const cityList = restaurants.filter((r) => r.city === selectedCity);
-          const featured = [...cityList].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent)[0];
-          if (!featured) return null;
-          return (
-            <View style={styles.heroSection}>
-              <Text style={styles.heroTitle}>🎯 Today&apos;s Pick for You</Text>
-              <Text style={styles.heroSub}>
-                {featured.tasteMatchPercent}% of Spicy Adventurers in {selectedCity.split(' ')[0]} who tried {featured.cuisine.split(' - ')[0].toLowerCase()} this month said this was worth it.
-              </Text>
-              <View style={styles.heroCardWrap}>
-                <RestaurantCard restaurant={featured} />
-              </View>
-            </View>
-          );
-        })()}
 
         {/* Sections */}
         {sections.map((sec) => {
@@ -203,6 +226,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  toast: {
+    position: 'absolute',
+    top: 50,
+    left: Spacing.md,
+    right: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    zIndex: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  toastText: {
+    ...Typography.label,
+    color: Colors.text,
+    fontWeight: '500',
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -231,39 +281,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginTop: 2,
   },
-  personaChip: {
-    alignSelf: 'flex-start',
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.secondary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.primary + '30',
-  },
-  personaChipText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  heroSection: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-  },
-  heroTitle: {
-    ...Typography.h2,
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  heroSub: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  heroCardWrap: {
-    alignItems: 'flex-start',
-  },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -283,9 +300,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
   },
-  notifBtn: {
-    padding: 4,
-  },
   dropdown: {
     position: 'absolute',
     top: 56,
@@ -302,6 +316,15 @@ const styles = StyleSheet.create({
     elevation: 8,
     overflow: 'hidden',
   },
+  dropdownHint: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
   dropdownItem: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
@@ -317,57 +340,40 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
   },
-  searchContainer: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
-  },
-  searchBar: {
+  firstTimeHint: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    ...Typography.body,
-    color: Colors.text,
-  },
-  checkInBanner: {
+    alignItems: 'flex-start',
+    gap: 8,
     marginHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  checkInTitle: {
-    ...Typography.label,
-    color: '#fff',
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  checkInSub: {
-    ...Typography.caption,
-    color: 'rgba(255,255,255,0.8)',
-    maxWidth: 200,
-  },
-  checkInBtn: {
-    backgroundColor: '#fff',
-    borderRadius: BorderRadius.full,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.md,
+  },
+  firstTimeHintText: {
+    ...Typography.caption,
+    color: Colors.text,
+    flex: 1,
+    lineHeight: 17,
+  },
+  checkInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingVertical: 14,
   },
   checkInBtnText: {
     ...Typography.label,
-    color: Colors.primary,
-    fontWeight: '700',
+    color: '#fff',
+    fontWeight: '600',
   },
   section: {
     marginBottom: Spacing.lg,

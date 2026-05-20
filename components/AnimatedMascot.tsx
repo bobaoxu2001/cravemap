@@ -6,87 +6,53 @@ interface AnimatedMascotProps {
   /** Persona name — drives which PNG is shown. Falls back to hidden-gem-hunter if unknown. */
   persona: string;
   size?: number;
-  /** When true (default), plays a spring bounce-in on mount. */
+  /** When true (default), plays a quiet fade-in on mount (no spring bounce). */
   animate?: boolean;
-  /** When true, loops a gentle scale pulse after the entrance animation. */
+  /** Kept for prop compatibility. No longer pulses — minimalist pass. */
   pulse?: boolean;
-  /** Optional tap handler — triggers a small bounce and fires the callback. */
+  /** Optional tap handler — fires the callback without a bounce animation. */
   onPress?: () => void;
 }
 
 /**
- * Mascot with optional entrance (spring bounce) and milestone pulse animations.
- * Uses only React Native's built-in Animated API so it works in Expo Go
- * on both iOS/Android and is safely skipped on web via useNativeDriver fallback.
- *
- * To re-trigger the entrance animation from the parent, pass a different `key` prop.
+ * Mascot with a quiet fade-in on mount. The previous spring bounce, sustained
+ * pulse, and tap bounce were dropped to align with the "subtle fades, minimal
+ * scaling" guideline. Props are preserved so call sites continue to compile;
+ * `pulse` is now a no-op.
  */
 export default function AnimatedMascot({
   persona,
   size = 120,
   animate = true,
-  pulse = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  pulse: _pulse,
   onPress,
 }: AnimatedMascotProps) {
-  const scaleAnim = useRef(new Animated.Value(animate ? 0 : 1)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const tapAnim = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(animate ? 0 : 1)).current;
 
-  const handlePress = () => {
-    Animated.sequence([
-      Animated.spring(tapAnim, { toValue: 1.18, useNativeDriver: true, tension: 220, friction: 4 }),
-      Animated.spring(tapAnim, { toValue: 1, useNativeDriver: true, tension: 180, friction: 6 }),
-    ]).start();
-    onPress?.();
-  };
-
-  // Entrance spring — runs once on mount.
   useEffect(() => {
     if (!animate) return;
-    Animated.spring(scaleAnim, {
+    Animated.timing(opacity, {
       toValue: 1,
-      tension: 55,
-      friction: 6,
+      duration: 220,
       useNativeDriver: true,
     }).start();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sustained pulse — starts/stops when `pulse` changes.
-  useEffect(() => {
-    if (!pulse) {
-      pulseAnim.stopAnimation();
-      pulseAnim.setValue(1);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 750,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 750,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const content = (
-    <Animated.View
-      style={{ transform: [{ scale: scaleAnim }, { scale: pulseAnim }, { scale: tapAnim }] }}
-    >
+    <Animated.View style={{ opacity }}>
       <Mascot persona={persona} size={size} />
     </Animated.View>
   );
 
   if (onPress) {
     return (
-      <Pressable onPress={handlePress} hitSlop={8}>
+      <Pressable
+        onPress={onPress}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={`${persona} mascot`}
+      >
         {content}
       </Pressable>
     );

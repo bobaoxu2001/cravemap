@@ -9,6 +9,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +17,6 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { Restaurant } from '../../types';
 import { getSavedRestaurants, unsaveRestaurant } from '../../src/services/saved';
 import { useAuth } from '../../src/hooks/useAuth';
-import TasteMatchBadge from '../../components/TasteMatchBadge';
 
 const DEMO_USER_ID = 'u001';
 
@@ -27,7 +27,18 @@ export default function Saved() {
 
   const [savedRestaurants, setSavedRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState('');
+
+  const onRefresh = useCallback(() => {
+    if (!userId) return;
+    setRefreshing(true);
+    setLoadError('');
+    getSavedRestaurants(userId)
+      .then(setSavedRestaurants)
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load saved restaurants.'))
+      .finally(() => setRefreshing(false));
+  }, [userId]);
 
   const loadSaved = useCallback(() => {
     if (!userId) {
@@ -66,7 +77,7 @@ export default function Saved() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Saved</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Saved</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🔐</Text>
@@ -75,6 +86,8 @@ export default function Saved() {
           <TouchableOpacity
             style={styles.exploreBtn}
             onPress={() => router.replace('/onboarding/welcome')}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
           >
             <Text style={styles.exploreBtnText}>Sign In</Text>
           </TouchableOpacity>
@@ -87,7 +100,7 @@ export default function Saved() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Saved</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Saved</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>⚠️</Text>
@@ -95,15 +108,9 @@ export default function Saved() {
           <Text style={styles.emptyDesc}>{loadError}</Text>
           <TouchableOpacity
             style={styles.exploreBtn}
-            onPress={() => {
-              if (!userId) return;
-              setLoading(true);
-              setLoadError('');
-              getSavedRestaurants(userId)
-                .then(setSavedRestaurants)
-                .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load saved restaurants.'))
-                .finally(() => setLoading(false));
-            }}
+            onPress={loadSaved}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading saved restaurants"
           >
             <Text style={styles.exploreBtnText}>Retry</Text>
           </TouchableOpacity>
@@ -116,7 +123,7 @@ export default function Saved() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Saved</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Saved</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🔖</Text>
@@ -125,6 +132,9 @@ export default function Saved() {
           <TouchableOpacity
             style={styles.exploreBtn}
             onPress={() => router.push('/(tabs)/home')}
+            accessibilityRole="button"
+            accessibilityLabel="Explore restaurants"
+            accessibilityHint="Goes to the Home tab to browse restaurants"
           >
             <Text style={styles.exploreBtnText}>Explore Restaurants</Text>
           </TouchableOpacity>
@@ -136,46 +146,50 @@ export default function Saved() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Saved</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">Saved</Text>
         <Text style={styles.headerCount}>{savedRestaurants.length} restaurants</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
+      >
+        {/* Minimalist saved cards — aligned with RestaurantCard + map list
+            item. Dropped: TasteMatchBadge component, open/closed dot, wait
+            time row, recommendation reason. The bookmark on the right
+            removes from the list (clear inverse of saving). */}
         {savedRestaurants.map((r) => (
           <TouchableOpacity
             key={r.id}
             style={styles.card}
             onPress={() => router.push(`/restaurant/${r.id}`)}
             activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel={`${r.name}, ${r.tasteMatchPercent}% taste match, ${r.cuisine}, ${r.price}, ${r.neighborhood}${!r.isOpen ? ', closed' : ''}`}
+            accessibilityHint="Opens restaurant details"
           >
             <Image source={{ uri: r.images[0] }} style={styles.cardImage} />
             <View style={styles.cardContent}>
-              <View style={styles.cardTopRow}>
-                <Text style={styles.cardName} numberOfLines={1}>{r.name}</Text>
-                <TouchableOpacity onPress={() => handleUnsave(r.id)} hitSlop={10}>
-                  <Ionicons name="bookmark" size={20} color={Colors.primary} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.cardSub}>{r.neighborhood} · {r.cuisine}</Text>
-              <View style={styles.cardBadgeRow}>
-                <TasteMatchBadge percent={r.tasteMatchPercent} showLabel />
-                <Text style={styles.cardPrice}>{r.price}</Text>
-              </View>
-              <View style={styles.cardStatusRow}>
-                <View style={[styles.openDot, { backgroundColor: r.isOpen ? Colors.green : Colors.textMuted }]} />
-                <Text style={[styles.openText, { color: r.isOpen ? Colors.green : Colors.textMuted }]}>
-                  {r.isOpen ? 'Open now' : 'Closed'}
-                </Text>
-                {r.waitTime && (
-                  <>
-                    <Text style={styles.dotSep}>·</Text>
-                    <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
-                    <Text style={styles.waitText}>{r.waitTime} wait</Text>
-                  </>
-                )}
-              </View>
-              <Text style={styles.cardReason} numberOfLines={2}>{r.recommendationReason}</Text>
+              <Text style={styles.cardName} numberOfLines={1}>{r.name}</Text>
+              <Text style={styles.cardSub} numberOfLines={1}>
+                {r.cuisine} · {r.price} · {r.neighborhood}
+              </Text>
+              <Text style={styles.cardMatch}>
+                {r.tasteMatchPercent}% match{!r.isOpen ? ' · Closed' : ''}
+              </Text>
             </View>
+            <TouchableOpacity
+              onPress={() => handleUnsave(r.id)}
+              hitSlop={10}
+              style={styles.unsaveBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${r.name} from saved`}
+            >
+              <Ionicons name="bookmark" size={20} color={Colors.primary} />
+            </TouchableOpacity>
           </TouchableOpacity>
         ))}
         <View style={styles.bottomPad} />
@@ -243,82 +257,43 @@ const styles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
   },
   cardImage: {
-    width: 110,
-    height: 130,
+    width: 96,
+    height: 96,
   },
   cardContent: {
     flex: 1,
-    padding: Spacing.sm,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 2,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   cardName: {
-    ...Typography.label,
+    fontSize: 15,
+    fontWeight: '600',
     color: Colors.text,
-    fontWeight: '700',
-    flex: 1,
-    marginRight: Spacing.sm,
+    marginBottom: 2,
+  },
+  cardMatch: {
+    ...Typography.caption,
+    color: Colors.text,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  unsaveBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   cardSub: {
     ...Typography.caption,
     color: Colors.textSecondary,
     marginBottom: Spacing.xs,
-  },
-  cardBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  cardPrice: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  cardStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: Spacing.xs,
-  },
-  openDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  openText: {
-    ...Typography.caption,
-    fontWeight: '500',
-  },
-  dotSep: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  waitText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  cardReason: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    lineHeight: 17,
   },
   bottomPad: {
     height: Spacing.xl,

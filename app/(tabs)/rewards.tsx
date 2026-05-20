@@ -50,19 +50,12 @@ const rewards = [
 
 // Pulsing radial halo behind the mascot when all Founding Scout tasks are
 // complete. Soft warm tone (matches the mascot card background family).
+// Minimalist pass: Glow is a no-op. The pulsing halo behind the all-tasks-done
+// mascot was too decorative; achievement is now communicated via a single
+// "All complete" copy line and the green check rows. Keep the function so the
+// JSX call site below continues to render.
 function Glow() {
-  const opacity = useRef(new Animated.Value(0.25)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.55, duration: 1100, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.25, duration: 1100, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
-  return <Animated.View pointerEvents="none" style={[styles.glow, { opacity }]} />;
+  return null;
 }
 
 export default function Rewards() {
@@ -97,7 +90,10 @@ export default function Rewards() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm }}>
+          <ActivityIndicator color={Colors.primary} />
+          <Text style={{ ...Typography.caption, color: Colors.textMuted }}>Loading your progress…</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -161,29 +157,22 @@ export default function Rewards() {
             </View>
           </View>
           <Text style={styles.heroTitle}>Founding Food Scout</Text>
-          <Text style={styles.heroSub}>Only 1,000 spots. 847 claimed.</Text>
-        </View>
-
-        {/* Why this matters */}
-        <View style={styles.whyCard}>
-          <Text style={styles.whyTitle}>Why this matters</Text>
-          <Text style={styles.whyText}>
-            Hey — I built CraveMap because every food app started feeling the same: same 10 viral spots, same staged photos, same lukewarm "must-try" lists. The first 1,000 scouts get to flip that. Your check-ins literally train the model. Your picks become the local-approved feed. You\'re not a user — you\'re a co-author. Thanks for being early.
+          {/* One-line explainer for first-time visitors: tells them this is
+              a 4-task program, not just an empty marketing label. */}
+          <Text style={styles.heroSub}>
+            Complete 4 tasks to earn a permanent badge + Pro access. 847 / 1,000 claimed.
           </Text>
         </View>
 
-        {/* Progress Card */}
+        {/* "Why this matters" founder-note dropped — pure marketing copy. */}
+
+        {/* Progress Card — duplicate "% complete" badge dropped; bar conveys it */}
         <View style={styles.progressCard}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressTitle}>{completedCount} of {progress.totalCount} unlocked</Text>
-            <View style={styles.progressBadge}>
-              <Text style={styles.progressBadgeText}>{Math.round(progressPercent * 100)}% complete</Text>
-            </View>
-          </View>
-          <ProgressBar progress={progressPercent} height={12} />
+          <Text style={styles.progressTitle}>{completedCount} of {progress.totalCount} unlocked</Text>
+          <ProgressBar progress={progressPercent} height={8} />
           <Text style={styles.progressHint}>
             {completedCount === progress.totalCount
-              ? '🎉 You are a Founding Food Scout!'
+              ? 'You are a Founding Food Scout!'
               : `${progress.totalCount - completedCount} more task${progress.totalCount - completedCount === 1 ? '' : 's'} to unlock all rewards`}
           </Text>
 
@@ -214,42 +203,25 @@ export default function Rewards() {
           </View>
         </View>
 
-        {/* Rewards Section */}
+        {/* Rewards Section — single mascot card. The 2 hardcoded "reward" rows
+            (Founding Scout Badge + Early Pro Access) repeat what the hero
+            already implies. Lottery copy condensed. Glow + sparkles already
+            no-op from v2/v3. */}
         <View style={styles.rewardsSection}>
-          <Text style={styles.rewardsSectionTitle}>🎁 Your Rewards</Text>
-
-          {/* Mascot hero reward */}
           <View style={styles.mascotCard}>
             <View style={styles.mascotContainer}>
-              {completedCount === progress.totalCount && <Glow />}
-              <Sparkles active={completedCount === progress.totalCount} />
-              <AnimatedMascot
-                persona={persona}
-                size={120}
-                animate
-                pulse={completedCount === progress.totalCount}
-              />
+              <AnimatedMascot persona={persona} size={120} animate />
             </View>
-            <Text style={styles.mascotTitle}>The 好吃GO Dango Mascot Plush</Text>
+            <Text style={styles.mascotTitle}>Mascot Plush · 50 made</Text>
             <Text style={styles.mascotDesc}>
-              Limited edition. Only 50 plushies will exist. Founding Food Scouts get lottery entry — no purchase needed.
+              Scouts who complete all tasks enter the lottery.
             </Text>
             <View style={[styles.lotteryBtn, completedCount < progress.totalCount && styles.lotteryBtnDisabled]}>
               <Text style={[styles.lotteryBtnText, completedCount < progress.totalCount && styles.lotteryBtnTextDisabled]}>
-                {completedCount < progress.totalCount ? `Complete ${progress.totalCount - completedCount} more task${progress.totalCount - completedCount === 1 ? '' : 's'} to enter` : 'Enter Lottery'}
+                {completedCount < progress.totalCount ? `${progress.totalCount - completedCount} more to enter` : 'Enter lottery'}
               </Text>
             </View>
           </View>
-
-          {rewards.map((r) => (
-            <View key={r.title} style={[styles.rewardCard, { backgroundColor: r.color, borderColor: r.borderColor }]}>
-              <Text style={styles.rewardEmoji}>{r.emoji}</Text>
-              <View style={styles.rewardInfo}>
-                <Text style={styles.rewardTitle}>{r.title}</Text>
-                <Text style={styles.rewardDesc}>{r.desc}</Text>
-              </View>
-            </View>
-          ))}
         </View>
 
         {/* CTA Buttons */}
@@ -264,6 +236,7 @@ export default function Rewards() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.secondaryCta}
+            onPress={() => router.push('/(tabs)/profile')}
             activeOpacity={0.7}
           >
             <Ionicons name="people-outline" size={18} color={Colors.primary} />
@@ -271,12 +244,7 @@ export default function Rewards() {
           </TouchableOpacity>
         </View>
 
-        {/* Footer note */}
-        <View style={styles.footerNote}>
-          <Text style={styles.footerNoteText}>
-            🕐 Founding Scout status closes when we hit 1,000 members or launch publicly — whichever comes first.
-          </Text>
-        </View>
+        {/* Footer note dropped — closes-at-1000 timing is mentioned in the hero subtitle */}
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -335,24 +303,6 @@ const styles = StyleSheet.create({
   heroSub: {
     ...Typography.body,
     color: 'rgba(255,255,255,0.92)',
-  },
-  whyCard: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.secondary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-  },
-  whyTitle: {
-    ...Typography.label,
-    color: Colors.primary,
-    fontWeight: '700',
-    marginBottom: Spacing.xs,
-  },
-  whyText: {
-    ...Typography.caption,
-    color: Colors.text,
-    lineHeight: 18,
   },
   taskItemDone: {
     borderLeftWidth: 4,
@@ -434,26 +384,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
   progressTitle: {
     ...Typography.h3,
     color: Colors.text,
-  },
-  progressBadge: {
-    backgroundColor: Colors.secondary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-  },
-  progressBadgeText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '700',
+    marginBottom: Spacing.sm,
   },
   progressHint: {
     ...Typography.caption,
@@ -523,36 +457,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     gap: Spacing.sm,
   },
-  rewardsSectionTitle: {
-    ...Typography.h3,
-    color: Colors.text,
-    marginBottom: Spacing.xs,
-  },
-  rewardCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderRadius: BorderRadius.md,
-    borderWidth: 1.5,
-    padding: Spacing.md,
-    gap: Spacing.md,
-  },
-  rewardEmoji: {
-    fontSize: 32,
-  },
-  rewardInfo: {
-    flex: 1,
-  },
-  rewardTitle: {
-    ...Typography.label,
-    color: Colors.text,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  rewardDesc: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
   ctaSection: {
     marginHorizontal: Spacing.md,
     gap: Spacing.sm,
@@ -584,17 +488,6 @@ const styles = StyleSheet.create({
   secondaryCtaText: {
     ...Typography.h3,
     color: Colors.primary,
-  },
-  footerNote: {
-    marginHorizontal: Spacing.md,
-    backgroundColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-  },
-  footerNoteText: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    lineHeight: 18,
   },
   bottomPad: {
     height: Spacing.xl,

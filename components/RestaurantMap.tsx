@@ -216,6 +216,11 @@ export default function RestaurantMap({ restaurants, selectedId, onSelect }: Res
         onPress={handleRecenter}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         style={styles.fabInner}
+        accessibilityRole="button"
+        accessibilityLabel={
+          locationGranted ? 'Recenter map on your location' : 'Recenter map on restaurants'
+        }
+        accessibilityHint="Cancels manual panning and flies the map back"
       >
         <Ionicons
           name={locationGranted ? 'locate' : 'map-outline'}

@@ -59,22 +59,18 @@ function Sparkle({ delay, size, emoji }: { delay: number; size: number; emoji: s
 }
 
 /**
- * Decorative sparkle stickers fanned around the parent. Non-interactive
- * (pointerEvents="none") and uses only the Animated API so it works in
- * Expo Go on iOS/Android and renders fine on web.
+ * Minimalist pass: Sparkles is now a no-op. The decorative sparkle stickers
+ * were dropped to lower visual noise on success states and the rewards screen.
+ * The prop interface is preserved so call sites continue to compile —
+ * remove the imports later as a cleanup pass.
  */
-export default function Sparkles({ active = true, emoji = '✨', style }: SparklesProps) {
-  if (!active) return null;
-  return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
-      {POSITIONS.map((pos, idx) => (
-        <View key={idx} style={[styles.position, { top: pos.top as any, left: pos.left as any }]}>
-          <Sparkle delay={pos.delay} size={pos.size} emoji={emoji} />
-        </View>
-      ))}
-    </View>
-  );
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function Sparkles(_props: SparklesProps) {
+  return null;
 }
+
+// Sparkle / POSITIONS / styles above are intentionally unreferenced —
+// kept for diff readability; can be deleted in a follow-up cleanup pass.
 
 const styles = StyleSheet.create({
   position: {

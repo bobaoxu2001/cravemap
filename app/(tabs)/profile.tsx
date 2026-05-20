@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { UserProfile } from '../../types';
 import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
 import { createInvite, redeemInvite } from '../../src/services/invites';
+import { deleteAccount } from '../../src/services/account';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 import Mascot from '../../components/Mascot';
@@ -26,12 +27,16 @@ const DEMO_USER_ID = 'u001';
 
 type MenuAction = 'invite' | null;
 
-const menuItems: Array<{ icon: string; label: string; route: string | null; action: MenuAction }> = [
-  { icon: 'compass-outline', label: 'Edit Taste Passport', route: '/onboarding/taste-passport', action: null },
-  { icon: 'checkmark-circle-outline', label: 'My Check-ins', route: '/my-check-ins', action: null },
-  { icon: 'people-outline', label: 'Invite Friends', route: null, action: 'invite' },
-  { icon: 'settings-outline', label: 'Settings', route: null, action: null },
-  { icon: 'help-circle-outline', label: 'Help & Support', route: null, action: null },
+// Sub-labels explain WHAT each row does — a one-line "why click this".
+// Especially important for "Founding Scout" (not obviously a reward program)
+// and "Invite Friends" (users may not know it's tied to scout progress).
+const menuItems: Array<{ icon: string; label: string; sub?: string; route: string | null; action: MenuAction }> = [
+  { icon: 'compass-outline',         label: 'Edit Taste Passport', sub: 'Update what you like, avoid, and trust', route: '/onboarding/taste-passport', action: null },
+  { icon: 'checkmark-circle-outline', label: 'My Check-ins',        sub: 'Posts you have shared',                  route: '/my-check-ins',              action: null },
+  { icon: 'star-outline',             label: 'Founding Scout',      sub: 'Early-member rewards · 4 tasks',         route: '/(tabs)/rewards',            action: null },
+  { icon: 'people-outline',           label: 'Invite Friends',      sub: 'Share an invite code · counts toward Scout', route: null,                     action: 'invite' },
+  { icon: 'settings-outline',         label: 'Settings',           sub: 'Coming after launch',                       route: null,                         action: null },
+  { icon: 'help-circle-outline',      label: 'Help & Support',     sub: 'Email beta team for bugs / requests',      route: null,                         action: null },
 ];
 
 export default function Profile() {
@@ -44,6 +49,7 @@ export default function Profile() {
   const [loadError, setLoadError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [redeemCode, setRedeemCode] = useState('');
   const [redeeming, setRedeeming] = useState(false);
@@ -72,8 +78,9 @@ export default function Profile() {
     return () => { mounted = false; };
   }, [authProfile]);
 
-  useEffect(() => { loadProfile(); }, [loadProfile]);
-
+  // `useFocusEffect` fires on initial focus AND every subsequent screen focus,
+  // so a separate mount-time `useEffect` would just double-fetch on first
+  // render. Single hook is enough.
   useFocusEffect(useCallback(() => {
     loadProfile();
   }, [loadProfile]));
@@ -81,7 +88,10 @@ export default function Profile() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm }}>
+          <ActivityIndicator color={Colors.primary} />
+          <Text style={{ ...Typography.caption, color: Colors.textMuted }}>Loading your profile…</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -131,6 +141,14 @@ export default function Profile() {
     }
     if (item.route) {
       router.push({ pathname: item.route as '/(tabs)/profile' | '/my-check-ins' | '/onboarding/taste-passport' });
+      return;
+    }
+    // No route + no action = unwired stub. Surface a friendly notice so the
+    // tap isn't silently swallowed (worst UX = "did anything happen?").
+    if (item.label === 'Settings') {
+      Alert.alert('Settings', 'Not in beta yet — coming after launch. For now, your taste passport is editable above.');
+    } else if (item.label === 'Help & Support') {
+      Alert.alert('Help & Support', 'Beta support: email ax2183@nyu.edu with bugs, ideas, or restaurant requests.');
     }
   };
 
@@ -165,12 +183,9 @@ export default function Profile() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        {/* Header — edit pencil dropped (no handler wired) */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity>
-            <Ionicons name="create-outline" size={22} color={Colors.text} />
-          </TouchableOpacity>
         </View>
 
         {/* Profile Card */}
@@ -183,6 +198,8 @@ export default function Profile() {
               <Text style={styles.cityText}>{profile.city}</Text>
             </View>
           </View>
+          {/* "Verified" was opaque — relabelled to "Verified visit" so users
+              know it means "you have at least one location-confirmed check-in". */}
           <View style={styles.statsRow}>
             <View style={styles.stat}>
               <Text style={styles.statNum}>{profile.checkInCount}</Text>
@@ -198,69 +215,43 @@ export default function Profile() {
               <Text style={[styles.statNum, profile.foundingScoutProgress.verifiedCheckIn && { color: Colors.green }]}>
                 {profile.foundingScoutProgress.verifiedCheckIn ? '✓' : '—'}
               </Text>
-              <Text style={styles.statLabel}>Verified</Text>
+              <Text style={styles.statLabel}>Verified visit</Text>
             </View>
           </View>
         </View>
 
-        {/* Taste Passport */}
+        {/* Taste Passport — emoji-led headers and decorative sparkles dropped */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>🛂 Taste Passport</Text>
+            <Text style={styles.sectionTitle}>Taste Passport</Text>
             <View style={styles.completeBadge}>
               <Text style={styles.completeBadgeText}>{passportStatus}</Text>
             </View>
           </View>
           <View style={styles.personaRow}>
             <Mascot persona={persona} size={48} />
-            <Ionicons name="sparkles-outline" size={15} color={Colors.primary} />
             <Text style={styles.personaText}>{persona}</Text>
           </View>
 
+          {/* Single "Loves" chip row only — Avoids/Trusts/Food Scenes
+              were 3 extra sections of chip noise. Users can re-enter via
+              "Edit Taste Passport" if they want to review the rest. */}
           <View style={styles.tasteSection}>
             <Text style={styles.tasteLabel}>Loves</Text>
             <View style={styles.tasteChips}>
               {profile.tastePreferences.map((t) => (
-                <TagChip key={t} label={t} variant="primary" />
-              ))}
-            </View>
-          </View>
-          <View style={styles.tasteSection}>
-            <Text style={styles.tasteLabel}>Avoids</Text>
-            <View style={styles.tasteChips}>
-              {profile.dislikes.map((d) => (
-                <TagChip key={d} label={d} variant="neutral" />
-              ))}
-            </View>
-          </View>
-          <View style={styles.tasteSection}>
-            <Text style={styles.tasteLabel}>Trusts</Text>
-            <View style={styles.tasteChips}>
-              {profile.trustSources.map((s) => (
-                <TagChip key={s} label={s} variant="green" />
-              ))}
-            </View>
-          </View>
-          <View style={styles.tasteSection}>
-            <Text style={styles.tasteLabel}>Food Scenes</Text>
-            <View style={styles.tasteChips}>
-              {profile.foodScenes.map((s) => (
-                <TagChip key={s} label={s} variant="yellow" />
+                <TagChip key={t} label={t} variant="neutral" />
               ))}
             </View>
           </View>
         </View>
 
-        {/* Badges */}
+        {/* Badges — emoji header dropped; redundant per-badge icon box dropped */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🏅 Badges</Text>
+          <Text style={styles.sectionTitle}>Badges</Text>
           {profile.badges.map((badge) => (
             <View key={badge} style={styles.badgeItem}>
-              <View style={styles.badgeIcon}>
-                <Text style={styles.badgeEmoji}>
-                  {badge.includes('Scout') ? '🏅' : '✅'}
-                </Text>
-              </View>
+              <Ionicons name="ribbon-outline" size={16} color={Colors.textMuted} />
               <Text style={styles.badgeLabel}>{badge}</Text>
             </View>
           ))}
@@ -282,9 +273,14 @@ export default function Profile() {
                 <View style={styles.menuIconContainer}>
                   <Ionicons name={item.icon as any} size={20} color={Colors.primary} />
                 </View>
-                <Text style={styles.menuLabel}>
-                  {isInviteItem && inviting ? 'Creating invite...' : item.label}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuLabel}>
+                    {isInviteItem && inviting ? 'Creating invite...' : item.label}
+                  </Text>
+                  {item.sub && !(isInviteItem && inviting) && (
+                    <Text style={styles.menuSub}>{item.sub}</Text>
+                  )}
+                </View>
                 {isInviteItem && inviting ? (
                   <ActivityIndicator size="small" color={Colors.primary} />
                 ) : (
@@ -343,28 +339,128 @@ export default function Profile() {
         {isSupabaseMode && (
           <TouchableOpacity
             style={styles.signOutButton}
-            onPress={async () => {
-              setSigningOut(true);
-              setSignOutError('');
-              try {
-                await signOut();
-                router.replace('/onboarding/welcome');
-              } catch (err) {
-                setSignOutError(
-                  err instanceof Error ? err.message : 'Could not sign out. Please try again.'
-                );
-              } finally {
-                setSigningOut(false);
-              }
+            onPress={() => {
+              // Confirm before signing out — easy to fat-finger at the bottom
+              // of the scroll, and re-signing in is friction (especially on
+              // TestFlight where testers may not remember their password).
+              Alert.alert(
+                'Sign out?',
+                'You will need to sign back in to view your check-ins, invites, and saved spots.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Sign out',
+                    style: 'destructive',
+                    onPress: async () => {
+                      setSigningOut(true);
+                      setSignOutError('');
+                      try {
+                        await signOut();
+                        router.replace('/onboarding/welcome');
+                      } catch (err) {
+                        setSignOutError(
+                          err instanceof Error ? err.message : 'Could not sign out. Please try again.'
+                        );
+                      } finally {
+                        setSigningOut(false);
+                      }
+                    },
+                  },
+                ]
+              );
             }}
             disabled={signingOut}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            accessibilityHint="Shows a confirmation, then ends your session"
+            accessibilityState={{ disabled: signingOut }}
           >
             <Ionicons name="log-out-outline" size={18} color={Colors.primary} />
             <Text style={styles.signOutText}>{signingOut ? 'Signing out...' : 'Sign Out'}</Text>
           </TouchableOpacity>
         )}
         {signOutError ? <Text style={styles.signOutError}>{signOutError}</Text> : null}
+
+        {/* Delete Account — destructive, two-confirmation flow */}
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={() => {
+            Alert.alert(
+              'Delete account?',
+              'This permanently deletes your profile, all check-ins, saved restaurants, and invite history. This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete my account',
+                  style: 'destructive',
+                  onPress: () => {
+                    // Second confirmation — Apple requires it to be intentional
+                    Alert.alert(
+                      'Are you absolutely sure?',
+                      'All your data will be permanently deleted and cannot be recovered.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Yes, delete everything',
+                          style: 'destructive',
+                          onPress: async () => {
+                            setDeletingAccount(true);
+                            try {
+                              await deleteAccount();
+                              await signOut();
+                              router.replace('/onboarding/welcome');
+                            } catch (err) {
+                              Alert.alert(
+                                'Could not delete account',
+                                err instanceof Error
+                                  ? err.message
+                                  : 'Please try again or contact ax2183@nyu.edu.'
+                              );
+                            } finally {
+                              setDeletingAccount(false);
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  },
+                },
+              ]
+            );
+          }}
+          disabled={deletingAccount}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+          accessibilityHint="Shows a confirmation before permanently deleting your account and all data"
+          accessibilityState={{ disabled: deletingAccount }}
+        >
+          {deletingAccount ? (
+            <ActivityIndicator size="small" color={Colors.error} />
+          ) : (
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Legal links — required for App Store compliance */}
+        <View style={styles.legalRow}>
+          <TouchableOpacity
+            onPress={() => router.push('/privacy-policy')}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+          >
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalDot}>·</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/terms')}
+            accessibilityRole="link"
+            accessibilityLabel="Terms of Service"
+          >
+            <Text style={styles.legalLink}>Terms of Service</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -508,17 +604,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  badgeIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeEmoji: {
-    fontSize: 18,
-  },
   badgeLabel: {
     ...Typography.label,
     color: Colors.text,
@@ -543,7 +628,11 @@ const styles = StyleSheet.create({
   menuLabel: {
     ...Typography.body,
     color: Colors.text,
-    flex: 1,
+  },
+  menuSub: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   bottomPad: {
     height: Spacing.xl,
@@ -646,5 +735,39 @@ const styles = StyleSheet.create({
     color: Colors.error,
     marginTop: Spacing.sm,
     lineHeight: 18,
+  },
+  deleteAccountButton: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FFF5F5',
+    padding: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 48,
+  },
+  deleteAccountText: {
+    ...Typography.label,
+    color: Colors.error,
+    fontWeight: '600',
+  },
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  legalLink: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    textDecorationLine: 'underline',
+  },
+  legalDot: {
+    ...Typography.caption,
+    color: Colors.textMuted,
   },
 });

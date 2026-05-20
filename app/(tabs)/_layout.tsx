@@ -91,13 +91,13 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Rewards is reachable from Profile → "Founding Scout" row.
+          Hidden from the tab bar to keep top-level nav to 4 items. */}
       <Tabs.Screen
         name="rewards"
         options={{
+          href: null,
           title: 'Rewards',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="star" color={color} focused={focused} />
-          ),
         }}
       />
     </Tabs>
