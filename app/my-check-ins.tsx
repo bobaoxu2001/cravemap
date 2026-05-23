@@ -87,7 +87,7 @@ export default function MyCheckIns() {
           <Text style={styles.emptyTitle}>Sign in to see your check-ins</Text>
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => router.push('/auth/sign-in')}
+            onPress={() => router.push('/onboarding/welcome')}
             activeOpacity={0.85}
           >
             <Text style={styles.actionBtnText}>Sign In</Text>

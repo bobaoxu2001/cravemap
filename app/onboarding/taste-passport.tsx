@@ -247,7 +247,7 @@ export default function TastePassport() {
           <Mascot persona={persona.name} size={180} style={styles.resultMascot} />
           <Text style={styles.resultPersona}>{persona.name}</Text>
           <Text style={styles.resultText}>
-            Your Taste Passport is ready. We&apos;ll match you with restaurants 247 other {persona.name}s love.
+            Your Taste Passport is ready. We&apos;ll match you with restaurants other {persona.name}s love.
           </Text>
         </View>
       </SafeAreaView>

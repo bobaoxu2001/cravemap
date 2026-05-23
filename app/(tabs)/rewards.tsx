@@ -107,7 +107,7 @@ export default function Rewards() {
           <Text style={styles.emptySubtitle}>
             Your Founding Scout rewards are tied to your account.
           </Text>
-          <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/auth/sign-in')} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/onboarding/welcome')} activeOpacity={0.85}>
             <Text style={styles.signInBtnText}>Sign In</Text>
           </TouchableOpacity>
         </View>
@@ -152,15 +152,12 @@ export default function Rewards() {
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
             <Text style={styles.heroBadgeEmoji}>🏅</Text>
-            <View style={styles.spotsRemainingPill}>
-              <Text style={styles.spotsRemainingText}>153 spots remaining</Text>
-            </View>
           </View>
           <Text style={styles.heroTitle}>Founding Food Scout</Text>
           {/* One-line explainer for first-time visitors: tells them this is
               a 4-task program, not just an empty marketing label. */}
           <Text style={styles.heroSub}>
-            Complete 4 tasks to earn a permanent badge + Pro access. 847 / 1,000 claimed.
+            Complete 4 tasks to earn a permanent badge + Pro access.
           </Text>
         </View>
 
@@ -283,17 +280,6 @@ const styles = StyleSheet.create({
   },
   heroBadgeEmoji: {
     fontSize: 36,
-  },
-  spotsRemainingPill: {
-    backgroundColor: Colors.secondary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-  },
-  spotsRemainingText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '700',
   },
   heroTitle: {
     ...Typography.h1,

@@ -98,14 +98,14 @@ Welcome to CraveMap v1.0! Discover restaurants matched to your taste across 5 US
 
 ## Screenshots
 
-Apple requires at least **one 6.7" iPhone screenshot**. iPad required because `supportsTablet: true`.
+Apple requires at least **one 6.7" iPhone screenshot**. iPad screenshots are not required while `supportsTablet` is false.
 
 | Device | Resolution | Required? |
 |---|---|---|
 | iPhone 6.7" (15 Pro Max) | 1290 × 2796 | ✅ Required |
 | iPhone 6.5" (14 Plus) | 1284 × 2778 | Optional (legacy) |
-| iPad Pro 13" (M4) | 2064 × 2752 | ✅ Required (tablet enabled) |
-| iPad Pro 12.9" (6th gen) | 2048 × 2732 | Optional (legacy) |
+| iPad Pro 13" (M4) | 2064 × 2752 | Not required (tablet disabled) |
+| iPad Pro 12.9" (6th gen) | 2048 × 2732 | Not required (tablet disabled) |
 
 ### Recommended screenshot sequence (5 screenshots):
 
@@ -142,8 +142,8 @@ Fill these in App Store Connect under **App Privacy → Data Types**:
 | Email Address | ✅ Yes | ✅ Yes | ❌ No |
 | Name | ✅ Yes (display name) | ✅ Yes | ❌ No |
 | Photos or Videos | ✅ Yes (check-in photos) | ✅ Yes | ❌ No |
-| Precise Location | ❌ No | — | ❌ No |
-| Coarse Location | ✅ Yes (city-level for map) | ✅ Yes | ❌ No |
+| Precise Location | ✅ Yes (only while using map/check-in verification) | ❌ No | ❌ No |
+| Coarse Location | ✅ Yes (city-level for map and recommendations) | ✅ Yes | ❌ No |
 | User Content | ✅ Yes (reviews, check-ins) | ✅ Yes | ❌ No |
 | Identifiers (User ID) | ✅ Yes | ✅ Yes | ❌ No |
 | Crash Data | ✅ Yes | ❌ No | ❌ No |
