@@ -18,6 +18,35 @@ import CheckInCard from '../components/CheckInCard';
 
 const DEMO_USER_ID = 'u001';
 
+function StatsHeader({ checkIns }: { checkIns: CheckIn[] }) {
+  const totalXP = checkIns.length * 50;
+  const verifiedCount = checkIns.filter((c) => c.locationVerified).length;
+  const uniqueRestaurants = new Set(checkIns.map((c) => c.restaurantId)).size;
+  return (
+    <View style={styles.statsHeader}>
+      <View style={styles.statItem}>
+        <Text style={styles.statValue}>{checkIns.length}</Text>
+        <Text style={styles.statLabel}>Check-ins</Text>
+      </View>
+      <View style={styles.statDivider} />
+      <View style={styles.statItem}>
+        <Text style={styles.statValue}>{uniqueRestaurants}</Text>
+        <Text style={styles.statLabel}>Spots</Text>
+      </View>
+      <View style={styles.statDivider} />
+      <View style={styles.statItem}>
+        <Text style={styles.statValue}>{verifiedCount}</Text>
+        <Text style={styles.statLabel}>Verified</Text>
+      </View>
+      <View style={styles.statDivider} />
+      <View style={styles.statItem}>
+        <Text style={[styles.statValue, { color: Colors.accent }]}>{totalXP}</Text>
+        <Text style={styles.statLabel}>XP Earned</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function MyCheckIns() {
   const router = useRouter();
   const { session, isSupabaseMode } = useAuth();
@@ -90,6 +119,7 @@ export default function MyCheckIns() {
           renderItem={({ item }) => <CheckInCard checkIn={item} />}
           contentContainerStyle={checkIns.length === 0 ? styles.emptyContainer : styles.list}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={checkIns.length > 0 ? <StatsHeader checkIns={checkIns} /> : null}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="camera-outline" size={48} color={Colors.textMuted} />
@@ -173,5 +203,36 @@ const styles = StyleSheet.create({
     ...Typography.label,
     color: '#fff',
     fontWeight: '700',
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: Colors.border,
   },
 });

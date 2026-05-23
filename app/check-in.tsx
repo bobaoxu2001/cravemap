@@ -98,10 +98,17 @@ export default function CheckIn() {
   const [photoError, setPhotoError] = useState('');
 
   const [sampleRestaurants, setSampleRestaurants] = useState<Restaurant[]>([]);
+  const [restaurantSearch, setRestaurantSearch] = useState('');
 
   useEffect(() => {
-    getAllRestaurants().then((r) => setSampleRestaurants(r.slice(0, 6)));
+    getAllRestaurants().then(setSampleRestaurants);
   }, []);
+
+  const filteredRestaurants = restaurantSearch.trim()
+    ? sampleRestaurants.filter((r) =>
+        [r.name, r.cuisine, r.neighborhood].join(' ').toLowerCase().includes(restaurantSearch.toLowerCase())
+      )
+    : sampleRestaurants;
 
   const toggleTag = (arr: string[], setArr: (v: string[]) => void, val: string) => {
     setArr(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);
@@ -269,26 +276,60 @@ export default function CheckIn() {
 
         {/* Step 1: Restaurant selection */}
         {step === 1 && (
-          <View style={styles.restaurantList}>
-            {sampleRestaurants.map((r) => (
-              <TouchableOpacity
-                key={r.id}
-                style={[styles.restaurantOption, selectedRestaurant?.id === r.id && styles.restaurantOptionSelected]}
-                onPress={() => setSelectedRestaurant(r)}
-                activeOpacity={0.8}
-              >
-                <Image source={{ uri: r.images[0] }} style={styles.restaurantOptionImage} />
-                <View style={styles.restaurantOptionInfo}>
-                  <Text style={styles.restaurantOptionName}>{r.name}</Text>
-                  <Text style={styles.restaurantOptionSub}>{r.neighborhood} · {r.cuisine}</Text>
-                  <Text style={styles.restaurantOptionAddr} numberOfLines={1}>{r.address}</Text>
+          <>
+            <View style={styles.restaurantSearchBar}>
+              <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
+              <TextInput
+                style={styles.restaurantSearchInput}
+                placeholder="Search restaurant, cuisine, or neighborhood..."
+                placeholderTextColor={Colors.textMuted}
+                value={restaurantSearch}
+                onChangeText={setRestaurantSearch}
+                autoCapitalize="none"
+                returnKeyType="search"
+              />
+              {restaurantSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setRestaurantSearch('')}>
+                  <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.restaurantList}>
+              {filteredRestaurants.length === 0 && (
+                <View style={styles.restaurantNoResults}>
+                  <Text style={styles.restaurantNoResultsText}>No restaurants found for "{restaurantSearch}"</Text>
                 </View>
-                {selectedRestaurant?.id === r.id && (
-                  <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+              )}
+              {filteredRestaurants.map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={[styles.restaurantOption, selectedRestaurant?.id === r.id && styles.restaurantOptionSelected]}
+                  onPress={() => setSelectedRestaurant(r)}
+                  activeOpacity={0.8}
+                >
+                  <Image source={{ uri: r.images[0] }} style={styles.restaurantOptionImage} />
+                  <View style={styles.restaurantOptionInfo}>
+                    <Text style={styles.restaurantOptionName}>{r.name}</Text>
+                    <Text style={styles.restaurantOptionSub}>{r.neighborhood} · {r.cuisine}</Text>
+                    <View style={styles.restaurantOptionMeta}>
+                      <Text style={[styles.restaurantOptionMatch, { color: r.tasteMatchPercent >= 85 ? Colors.green : Colors.accent }]}>
+                        {r.tasteMatchPercent}% match
+                      </Text>
+                      <Text style={styles.restaurantOptionDot}>·</Text>
+                      <Text style={[styles.restaurantOptionOpen, { color: r.isOpen ? Colors.green : Colors.textMuted }]}>
+                        {r.isOpen ? 'Open' : 'Closed'}
+                      </Text>
+                      <Text style={styles.restaurantOptionDot}>·</Text>
+                      <Text style={styles.restaurantOptionPrice}>{r.price}</Text>
+                    </View>
+                  </View>
+                  {selectedRestaurant?.id === r.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
         )}
 
         {/* Step 2: Combined "Your take?" */}
@@ -542,10 +583,28 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 2,
   },
-  restaurantOptionAddr: {
-    ...Typography.caption,
-    color: Colors.textMuted,
+  restaurantOptionMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  restaurantOptionMatch: {
     fontSize: 11,
+    fontWeight: '700',
+  },
+  restaurantOptionDot: {
+    fontSize: 11,
+    color: Colors.textMuted,
+  },
+  restaurantOptionOpen: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  restaurantOptionPrice: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    fontWeight: '600',
   },
   photoSection: {
     gap: Spacing.md,
@@ -1060,5 +1119,31 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontWeight: '400',
     fontSize: 12,
+  },
+  restaurantSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.warmBackground,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.md,
+  },
+  restaurantSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.text,
+  },
+  restaurantNoResults: {
+    padding: Spacing.lg,
+    alignItems: 'center',
+  },
+  restaurantNoResultsText: {
+    ...Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
   },
 });
