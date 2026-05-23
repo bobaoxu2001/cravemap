@@ -18,6 +18,7 @@ import { getCurrentProfile } from '../../src/services/profile';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
 import RestaurantCard from '../../components/RestaurantCard';
+import VoiceMic from '../../components/VoiceMic';
 
 const CITIES = ['New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
 
@@ -155,9 +156,10 @@ export default function Home() {
               placeholderTextColor={Colors.textMuted}
               editable={false}
             />
-            <View style={styles.searchFilter}>
-              <Ionicons name="options-outline" size={16} color={Colors.primary} />
-            </View>
+            <VoiceMic
+              restaurants={restaurants}
+              onResult={() => router.push('/voice-results')}
+            />
           </View>
         </View>
 
