@@ -29,7 +29,7 @@ import Sparkles from '../components/Sparkles';
 
 const DEMO_USER_ID = 'u001';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 2;
 const MAX_PHOTOS = 6;
 
 const tasteTags = ['Spicy', 'Very Spicy', 'Savory', 'Sweet', 'Smoky', 'Sour', 'Umami', 'Light', 'Rich', 'Crispy'];
@@ -110,10 +110,17 @@ export default function CheckIn() {
   const canNext = () => {
     if (submitting) return false;
     if (step === 1) return selectedRestaurant !== null;
-    if (step === 3) return review.length > 10 || selectedTasteTags.length > 0;
-    if (step === 4) return hypeRating !== null;
+    if (step === 2) return hypeRating !== null;
     return true;
   };
+
+  useEffect(() => {
+    if (step === 2) {
+      setLocationStatus('verifying');
+      const timer = setTimeout(() => setLocationStatus('verified'), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [step]);
 
   const remainingPhotoSlots = MAX_PHOTOS - photos.length;
 
@@ -226,10 +233,6 @@ export default function CheckIn() {
 
   const handleNext = () => {
     if (step < TOTAL_STEPS) {
-      if (step === TOTAL_STEPS - 1) {
-        setLocationStatus('verifying');
-        setTimeout(() => setLocationStatus('verified'), 2000);
-      }
       setStep(step + 1);
     } else {
       void handleSubmit();
@@ -243,10 +246,7 @@ export default function CheckIn() {
 
   const stepTitles = [
     'Which restaurant?',
-    'Add photos',
-    'Write your review',
-    'Rate & tag',
-    'Verify location',
+    'Your take?',
   ];
 
   return (
@@ -291,125 +291,59 @@ export default function CheckIn() {
           </View>
         )}
 
-        {/* Step 2: Photos */}
+        {/* Step 2: Combined "Your take?" */}
         {step === 2 && (
-          <View style={styles.photoSection}>
+          <View style={styles.quickTakeSection}>
+            {/* Restaurant banner with location pill */}
             {selectedRestaurant && (
-              <View style={styles.selectedInfo}>
-                <Text style={styles.selectedLabel}>Checking in at</Text>
-                <Text style={styles.selectedName}>{selectedRestaurant.name}</Text>
-              </View>
-            )}
-            {photos.length === 0 ? (
-              <TouchableOpacity
-                style={styles.photoPlaceholder}
-                onPress={pickFromLibrary}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="camera-outline" size={40} color={Colors.textMuted} />
-                <Text style={styles.photoPlaceholderText}>Tap to add photos</Text>
-                <Text style={styles.photoPlaceholderSub}>Photos make your check-in more helpful</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.photoGrid}>
-                {photos.map((uri) => (
-                  <View key={uri} style={styles.photoThumbWrap}>
-                    <Image source={{ uri }} style={styles.photoThumb} />
-                    <TouchableOpacity
-                      style={styles.photoRemoveBtn}
-                      onPress={() => removePhoto(uri)}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="close" size={16} color="#fff" />
-                    </TouchableOpacity>
+              <View style={styles.selectedBanner}>
+                <View style={styles.selectedBannerLeft}>
+                  <Image source={{ uri: selectedRestaurant.images[0] }} style={styles.selectedBannerImg} />
+                  <View>
+                    <Text style={styles.selectedBannerName}>{selectedRestaurant.name}</Text>
+                    <Text style={styles.selectedBannerSub}>{selectedRestaurant.neighborhood}</Text>
                   </View>
-                ))}
-                {photos.length < MAX_PHOTOS && (
-                  <TouchableOpacity
-                    style={styles.photoAddTile}
-                    onPress={pickFromLibrary}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add" size={28} color={Colors.primary} />
-                  </TouchableOpacity>
-                )}
+                </View>
+                {locationStatus === 'verifying' ? (
+                  <View style={styles.locationVerifyingPill}>
+                    <ActivityIndicator size="small" color={Colors.textMuted} />
+                    <Text style={styles.locationVerifyingText}>Locating...</Text>
+                  </View>
+                ) : locationStatus === 'verified' ? (
+                  <View style={styles.locationVerifiedPill}>
+                    <Text style={styles.locationVerifiedText}>✓ Verified +150 XP</Text>
+                  </View>
+                ) : null}
               </View>
             )}
-            <View style={styles.photoButtons}>
+
+            {/* Compact photo row */}
+            <View style={styles.photoRow}>
               <TouchableOpacity
-                style={[styles.photoBtn, remainingPhotoSlots <= 0 && styles.photoBtnDisabled]}
+                style={[styles.photoAddBtn, remainingPhotoSlots <= 0 && styles.photoBtnDisabled]}
                 onPress={pickFromCamera}
                 disabled={remainingPhotoSlots <= 0}
+                activeOpacity={0.7}
               >
-                <Ionicons name="camera-outline" size={20} color={Colors.primary} />
-                <Text style={styles.photoBtnText}>Camera</Text>
+                <Ionicons name="camera-outline" size={18} color={Colors.primary} />
+                <Text style={styles.photoAddBtnText}>Photo</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.photoBtn, remainingPhotoSlots <= 0 && styles.photoBtnDisabled]}
-                onPress={pickFromLibrary}
-                disabled={remainingPhotoSlots <= 0}
-              >
-                <Ionicons name="images-outline" size={20} color={Colors.primary} />
-                <Text style={styles.photoBtnText}>Gallery</Text>
-              </TouchableOpacity>
+              {photos.slice(0, 3).map((uri) => (
+                <View key={uri} style={styles.photoThumbSmall}>
+                  <Image source={{ uri }} style={styles.photoThumbSmallImg} />
+                  <TouchableOpacity
+                    style={styles.photoRemoveBtnSmall}
+                    onPress={() => removePhoto(uri)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="close" size={10} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
-            {photoError ? (
-              <Text style={styles.photoErrorText}>{photoError}</Text>
-            ) : (
-              <Text style={styles.photoSkipNote}>
-                {photos.length > 0
-                  ? `${photos.length}/${MAX_PHOTOS} photos selected — you can also skip and post text-only.`
-                  : 'You can skip photos and still post your check-in'}
-              </Text>
-            )}
-          </View>
-        )}
+            {photoError ? <Text style={styles.photoErrorText}>{photoError}</Text> : null}
 
-        {/* Step 3: Review */}
-        {step === 3 && (
-          <View style={styles.reviewSection}>
-            <Text style={styles.inputLabel}>Your honest review</Text>
-            <TextInput
-              style={styles.reviewInput}
-              placeholder="What made this meal memorable? Be specific — help others decide!"
-              placeholderTextColor={Colors.textMuted}
-              multiline
-              numberOfLines={5}
-              value={review}
-              onChangeText={setReview}
-              textAlignVertical="top"
-            />
-            <Text style={styles.charCount}>{review.length}/500</Text>
-
-            <Text style={styles.inputLabel}>Taste tags</Text>
-            <MultiChips
-              options={tasteTags}
-              selected={selectedTasteTags}
-              onToggle={(v) => toggleTag(selectedTasteTags, setSelectedTasteTags, v)}
-              variant="primary"
-            />
-          </View>
-        )}
-
-        {/* Step 4: Diet, scene tags + hype rating */}
-        {step === 4 && (
-          <View style={styles.tagsSection}>
-            <Text style={styles.inputLabel}>Dietary info (optional)</Text>
-            <MultiChips
-              options={dietTags}
-              selected={selectedDietTags}
-              onToggle={(v) => toggleTag(selectedDietTags, setSelectedDietTags, v)}
-              variant="green"
-            />
-
-            <Text style={styles.inputLabel}>Food scene (optional)</Text>
-            <MultiChips
-              options={sceneTags}
-              selected={selectedSceneTags}
-              onToggle={(v) => toggleTag(selectedSceneTags, setSelectedSceneTags, v)}
-              variant="yellow"
-            />
-
+            {/* Hype rating — required */}
             <Text style={styles.inputLabel}>Was it worth it?</Text>
             <View style={styles.hypeOptions}>
               {hypeOptions.map((opt) => (
@@ -426,65 +360,17 @@ export default function CheckIn() {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
-        )}
 
-        {/* Step 5: Location verification */}
-        {step === 5 && (
-          <View style={styles.locationSection}>
-            <View style={styles.locationCard}>
-              {locationStatus === 'idle' && (
-                <>
-                  <Ionicons name="location-outline" size={48} color={Colors.textMuted} />
-                  <Text style={styles.locationTitle}>Location Verification</Text>
-                  <Text style={styles.locationDesc}>
-                    Verifying you were actually at {selectedRestaurant?.name} adds credibility to your check-in.
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.verifyBtn}
-                    onPress={() => {
-                      setLocationStatus('verifying');
-                      setTimeout(() => setLocationStatus('verified'), 2000);
-                    }}
-                  >
-                    <Text style={styles.verifyBtnText}>Verify My Location</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {locationStatus === 'verifying' && (
-                <>
-                  <Ionicons name="locate-outline" size={48} color={Colors.accent} />
-                  <Text style={styles.locationTitle}>Verifying...</Text>
-                  <Text style={styles.locationDesc}>Checking your location against restaurant coordinates.</Text>
-                  <View style={styles.verifyingDots}>
-                    <Text style={styles.verifyingDotText}>● ● ●</Text>
-                  </View>
-                </>
-              )}
-
-              {locationStatus === 'verified' && (
-                <>
-                  <View style={styles.verifiedCircle}>
-                    <Ionicons name="checkmark" size={40} color="#fff" />
-                  </View>
-                  <Text style={[styles.locationTitle, { color: Colors.green }]}>Location Verified! ✅</Text>
-                  <Text style={styles.locationDesc}>
-                    Your check-in will show the verified badge — this makes it 3x more helpful to other foodies.
-                  </Text>
-                  <View style={styles.verifiedBadge}>
-                    <Ionicons name="shield-checkmark" size={16} color={Colors.green} />
-                    <Text style={styles.verifiedBadgeText}>+50 bonus points for verified check-in</Text>
-                  </View>
-                </>
-              )}
-            </View>
-
-            {locationStatus !== 'verified' && !submitting && (
-              <TouchableOpacity style={styles.skipVerify} onPress={() => void handleSubmit()}>
-                <Text style={styles.skipVerifyText}>Skip verification (no bonus points)</Text>
-              </TouchableOpacity>
-            )}
+            {/* Taste tags — optional */}
+            <Text style={styles.inputLabel}>
+              Taste tags <Text style={styles.optionalLabel}>(optional)</Text>
+            </Text>
+            <MultiChips
+              options={tasteTags}
+              selected={selectedTasteTags}
+              onToggle={(v) => toggleTag(selectedTasteTags, setSelectedTasteTags, v)}
+              variant="primary"
+            />
           </View>
         )}
       </ScrollView>
@@ -1065,5 +951,114 @@ const styles = StyleSheet.create({
   successBtnText: {
     ...Typography.h3,
     color: '#fff',
+  },
+  quickTakeSection: {
+    gap: Spacing.md,
+  },
+  selectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.sm,
+  },
+  selectedBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  selectedBannerImg: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+  },
+  selectedBannerName: {
+    ...Typography.label,
+    color: Colors.text,
+    fontWeight: '700',
+  },
+  selectedBannerSub: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    fontSize: 12,
+  },
+  locationVerifiedPill: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    backgroundColor: '#E8F5EE',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  locationVerifiedText: {
+    fontSize: 11,
+    color: Colors.green,
+    fontWeight: '700',
+  },
+  locationVerifyingPill: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    backgroundColor: Colors.warmBackground,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  locationVerifyingText: {
+    fontSize: 11,
+    color: Colors.textMuted,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  photoAddBtn: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  photoAddBtnText: {
+    fontSize: 13,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  photoThumbSmall: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  photoThumbSmallImg: {
+    width: 72,
+    height: 72,
+  },
+  photoRemoveBtnSmall: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionalLabel: {
+    color: Colors.textMuted,
+    fontWeight: '400',
+    fontSize: 12,
   },
 });

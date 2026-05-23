@@ -198,7 +198,10 @@ export default function Home() {
                 {featured.tasteMatchPercent}% of Spicy Adventurers in {selectedCity.split(' ')[0]} who tried {featured.cuisine.split(' - ')[0].toLowerCase()} this month said this was worth it.
               </Text>
               <View style={styles.heroCardWrap}>
-                <RestaurantCard restaurant={featured} />
+                <RestaurantCard
+                  restaurant={featured}
+                  topCheckIn={{ userName: 'Sarah K.', hypeRating: 'worth_it', review: 'Skip the menu, order the #6. Cash only but absolutely worth it.' }}
+                />
               </View>
             </View>
           );
