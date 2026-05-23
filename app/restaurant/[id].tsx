@@ -284,6 +284,26 @@ export default function RestaurantDetail() {
               </Text>
             </View>
           </View>
+          {restaurant.trendingSignal && (
+            <View style={[styles.trendingPill, {
+              backgroundColor: restaurant.trendingSignal === 'trending' ? '#FFF0F0'
+                : restaurant.trendingSignal === 'rising' ? '#E3F2FD'
+                : restaurant.trendingSignal === 'underrated' ? '#F3E5F5'
+                : '#FFF8E1'
+            }]}>
+              <Text style={[styles.trendingPillText, {
+                color: restaurant.trendingSignal === 'trending' ? '#C44545'
+                  : restaurant.trendingSignal === 'rising' ? '#1565C0'
+                  : restaurant.trendingSignal === 'underrated' ? '#6A1B9A'
+                  : '#B8860B'
+              }]}>
+                {restaurant.trendingSignal === 'trending' ? '🔥 Trending'
+                  : restaurant.trendingSignal === 'rising' ? '📈 Rising'
+                  : restaurant.trendingSignal === 'underrated' ? '💎 Underrated'
+                  : '⭐ Classic'}
+              </Text>
+            </View>
+          )}
 
           {/* Trust Strip */}
           <View style={styles.trustStrip}>
@@ -664,6 +684,17 @@ const styles = StyleSheet.create({
   openText: {
     ...Typography.label,
     fontWeight: '600',
+  },
+  trendingPill: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    marginBottom: Spacing.sm,
+  },
+  trendingPillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   divider: {
     height: 1,

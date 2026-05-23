@@ -447,7 +447,7 @@ export default function Home() {
                     subtitle={sec.subtitle(selectedCity)}
                     onSeeAll={() => router.push('/map')}
                   />
-                  <HorizontalScroll restaurants={sectionRestaurants} />
+                  <HorizontalScroll restaurants={sectionRestaurants} checkIns={recentCheckIns} />
                 </View>
               );
             })}
