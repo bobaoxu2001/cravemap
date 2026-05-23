@@ -497,7 +497,7 @@ export default function RestaurantDetail() {
           <Ionicons name="camera-outline" size={20} color="#fff" />
           <View>
             <Text style={[styles.actionBtnText, { color: '#fff' }]}>Check In</Text>
-            <Text style={styles.actionBtnIncentive}>+200 pts</Text>
+            <Text style={styles.actionBtnIncentive}>+50 XP</Text>
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionIconBtn} onPress={openMaps}>

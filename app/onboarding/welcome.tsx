@@ -35,6 +35,13 @@ const features = [
     desc: 'Location-verified reviews — no bots, no paid influencers.',
     accentColor: '#7B9EFF',
   },
+  {
+    icon: '🐾',
+    iconBg: '#FFF3E0',
+    title: 'Your Food Pet',
+    desc: 'Level up your Dango the more you eat and explore.',
+    accentColor: Colors.accent,
+  },
 ];
 
 export default function Welcome() {

@@ -12,7 +12,8 @@ import { Redirect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import ProgressBar from '../../components/ProgressBar';
-import Mascot from '../../components/Mascot';
+import AnimatedMascot from '../../components/AnimatedMascot';
+import Sparkles from '../../components/Sparkles';
 import { useAuth } from '../../src/hooks/useAuth';
 import { completeTastePassport } from '../../src/services/profile';
 import type { UpdateTastePassportInput } from '../../src/services/types';
@@ -172,7 +173,7 @@ export default function TastePassport() {
       setShowResult(true);
       setTimeout(() => {
         router.replace('/(tabs)/home');
-      }, 2000);
+      }, 4000);
       return;
     }
 
@@ -188,7 +189,7 @@ export default function TastePassport() {
       setShowResult(true);
       setTimeout(() => {
         router.replace('/(tabs)/home');
-      }, 1200);
+      }, 4000);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not save your Taste Passport.');
     } finally {
@@ -244,11 +245,37 @@ export default function TastePassport() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.resultContainer}>
-          <Mascot persona={persona.name} size={180} style={styles.resultMascot} />
+          <View style={styles.resultMascotWrap}>
+            <Sparkles active emoji="✨" />
+            <AnimatedMascot persona={persona.name} size={160} animate pulse />
+          </View>
+          <View style={styles.resultXPBadge}>
+            <Text style={styles.resultXPText}>+200 XP unlocked</Text>
+          </View>
+          <Text style={styles.resultPersonaEmoji}>{persona.emoji}</Text>
           <Text style={styles.resultPersona}>{persona.name}</Text>
-          <Text style={styles.resultText}>
-            Your Taste Passport is ready. We&apos;ll match you with restaurants 247 other {persona.name}s love.
+          <Text style={styles.resultSubtitle}>Your CraveMap feed is now personalized. We matched you with restaurants that{' '}
+            <Text style={{ fontWeight: '700' }}>247 other {persona.name}s</Text> love in your city.
           </Text>
+          <View style={styles.resultHighlights}>
+            {[
+              { emoji: '🎯', text: 'Taste Match % calculated for every restaurant' },
+              { emoji: '🏘️', text: 'Local-approved feed now unlocked' },
+              { emoji: '🏅', text: 'Taste Passport complete — Founding Scout progress updated' },
+            ].map((h) => (
+              <View key={h.text} style={styles.resultHighlightRow}>
+                <Text style={styles.resultHighlightEmoji}>{h.emoji}</Text>
+                <Text style={styles.resultHighlightText}>{h.text}</Text>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={styles.resultCTA}
+            onPress={() => router.replace('/(tabs)/home')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.resultCTAText}>Start Exploring 🍜</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -276,6 +303,11 @@ export default function TastePassport() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>🛂 Taste Passport</Text>
+          </View>
+          <View style={styles.stepIllustration}>
+            <Text style={styles.stepIllustrationEmoji}>
+              {['🏙️', '🤝', '🌶️', '🚫', '🥗', '🌙'][step - 1]}
+            </Text>
           </View>
           <Text style={styles.title}>{stepTitles[step - 1]}</Text>
           <Text style={styles.subtitle}>{stepSubtitles[step - 1]}</Text>
@@ -446,21 +478,92 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.xl,
-    gap: Spacing.md,
+    paddingVertical: Spacing.lg,
+    gap: Spacing.sm,
   },
-  resultMascot: {
+  resultMascotWrap: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 180,
     marginBottom: Spacing.sm,
   },
-  resultPersona: {
-    ...Typography.h1,
-    color: Colors.primary,
-    textAlign: 'center',
+  resultXPBadge: {
+    backgroundColor: '#F0FBF5',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.green + '40',
   },
-  resultText: {
+  resultXPText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.green,
+  },
+  resultPersonaEmoji: {
+    fontSize: 42,
+    marginBottom: 4,
+  },
+  resultPersona: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: Colors.text,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  resultSubtitle: {
     ...Typography.body,
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+    marginTop: 4,
+  },
+  resultHighlights: {
+    width: '100%',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  resultHighlightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.warmBackground,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+  },
+  resultHighlightEmoji: {
+    fontSize: 18,
+  },
+  resultHighlightText: {
+    ...Typography.caption,
+    color: Colors.text,
+    flex: 1,
+    fontWeight: '500',
+  },
+  resultCTA: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.md,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  resultCTAText: {
+    ...Typography.h3,
+    color: '#fff',
+    fontWeight: '800',
+  },
+  stepIllustration: {
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  stepIllustrationEmoji: {
+    fontSize: 56,
   },
   cityEmoji: {
     fontSize: 32,
