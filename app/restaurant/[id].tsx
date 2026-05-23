@@ -329,6 +329,7 @@ export default function RestaurantDetail() {
             ))}
           </View>
 
+
           {/* Community teaser */}
           {checkIns.length > 0 ? (
             <View style={styles.communityTeaser}>

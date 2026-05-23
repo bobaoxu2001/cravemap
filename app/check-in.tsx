@@ -364,7 +364,7 @@ export default function CheckIn() {
                   </View>
                 ) : locationStatus === 'verified' ? (
                   <View style={styles.locationVerifiedPill}>
-                    <Text style={styles.locationVerifiedText}>✓ Location verified</Text>
+                    <Text style={styles.locationVerifiedText}>✓ Verified +150 XP</Text>
                   </View>
                 ) : null}
               </View>
