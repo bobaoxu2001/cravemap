@@ -9,6 +9,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +29,8 @@ export default function Saved() {
   const [savedRestaurants, setSavedRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [savedSearch, setSavedSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'match' | 'open' | 'price'>('match');
 
   const loadSaved = useCallback(() => {
     if (!userId) {
@@ -133,6 +136,24 @@ export default function Saved() {
     );
   }
 
+  const displayed = (() => {
+    const filtered = savedSearch.trim()
+      ? savedRestaurants.filter((r) =>
+          [r.name, r.cuisine, r.neighborhood].join(' ').toLowerCase().includes(savedSearch.toLowerCase())
+        )
+      : savedRestaurants;
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'match') {
+        return (b.tasteMatchPercent ?? 0) - (a.tasteMatchPercent ?? 0);
+      } else if (sortBy === 'open') {
+        if (a.isOpen === b.isOpen) return (b.tasteMatchPercent ?? 0) - (a.tasteMatchPercent ?? 0);
+        return a.isOpen ? -1 : 1;
+      } else {
+        return (a.price?.length ?? 0) - (b.price?.length ?? 0);
+      }
+    });
+  })();
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -140,44 +161,80 @@ export default function Saved() {
         <Text style={styles.headerCount}>{savedRestaurants.length} restaurants</Text>
       </View>
 
+      {/* Search + sort */}
+      <View style={styles.filterBar}>
+        <View style={styles.savedSearchBar}>
+          <Ionicons name="search-outline" size={15} color={Colors.textMuted} />
+          <TextInput
+            style={styles.savedSearchInput}
+            placeholder="Search saved..."
+            placeholderTextColor={Colors.textMuted}
+            value={savedSearch}
+            onChangeText={setSavedSearch}
+          />
+        </View>
+        <View style={styles.sortRow}>
+          {(['match', 'open', 'price'] as const).map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[styles.sortChip, sortBy === s && styles.sortChipActive]}
+              onPress={() => setSortBy(s)}
+            >
+              <Text style={[styles.sortChipText, sortBy === s && styles.sortChipTextActive]}>
+                {s === 'match' ? '🎯 Match' : s === 'open' ? '🟢 Open' : '💰 Price'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
-        {savedRestaurants.map((r) => (
-          <TouchableOpacity
-            key={r.id}
-            style={styles.card}
-            onPress={() => router.push(`/restaurant/${r.id}`)}
-            activeOpacity={0.88}
-          >
-            <Image source={{ uri: r.images[0] }} style={styles.cardImage} />
-            <View style={styles.cardContent}>
-              <View style={styles.cardTopRow}>
-                <Text style={styles.cardName} numberOfLines={1}>{r.name}</Text>
-                <TouchableOpacity onPress={() => handleUnsave(r.id)} hitSlop={10}>
-                  <Ionicons name="bookmark" size={20} color={Colors.primary} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.cardSub}>{r.neighborhood} · {r.cuisine}</Text>
-              <View style={styles.cardBadgeRow}>
-                <TasteMatchBadge percent={r.tasteMatchPercent} showLabel />
-                <Text style={styles.cardPrice}>{r.price}</Text>
-              </View>
-              <View style={styles.cardStatusRow}>
-                <View style={[styles.openDot, { backgroundColor: r.isOpen ? Colors.green : Colors.textMuted }]} />
-                <Text style={[styles.openText, { color: r.isOpen ? Colors.green : Colors.textMuted }]}>
-                  {r.isOpen ? 'Open now' : 'Closed'}
-                </Text>
-                {r.waitTime && (
-                  <>
-                    <Text style={styles.dotSep}>·</Text>
-                    <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
-                    <Text style={styles.waitText}>{r.waitTime} wait</Text>
-                  </>
+        {displayed.length === 0 && savedSearch.trim() ? (
+          <View style={styles.searchEmpty}>
+            <Text style={styles.searchEmptyText}>No saved restaurants match "{savedSearch}"</Text>
+          </View>
+        ) : (
+          displayed.map((r) => (
+            <TouchableOpacity
+              key={r.id}
+              style={styles.card}
+              onPress={() => router.push(`/restaurant/${r.id}`)}
+              activeOpacity={0.88}
+            >
+              <Image source={{ uri: r.images[0] }} style={styles.cardImage} />
+              <View style={styles.cardContent}>
+                <View style={styles.cardTopRow}>
+                  <Text style={styles.cardName} numberOfLines={1}>{r.name}</Text>
+                  <TouchableOpacity onPress={() => handleUnsave(r.id)} hitSlop={10}>
+                    <Ionicons name="bookmark" size={20} color={Colors.primary} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.cardSub}>{r.neighborhood} · {r.cuisine}</Text>
+                <View style={styles.cardBadgeRow}>
+                  <TasteMatchBadge percent={r.tasteMatchPercent} showLabel />
+                  <Text style={styles.cardPrice}>{r.price}</Text>
+                </View>
+                <View style={styles.cardStatusRow}>
+                  <View style={[styles.openDot, { backgroundColor: r.isOpen ? Colors.green : Colors.textMuted }]} />
+                  <Text style={[styles.openText, { color: r.isOpen ? Colors.green : Colors.textMuted }]}>
+                    {r.isOpen ? 'Open now' : 'Closed'}
+                  </Text>
+                  {r.waitTime && (
+                    <>
+                      <Text style={styles.dotSep}>·</Text>
+                      <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
+                      <Text style={styles.waitText}>{r.waitTime} wait</Text>
+                    </>
+                  )}
+                </View>
+                <Text style={styles.cardReason} numberOfLines={2}>{r.recommendationReason}</Text>
+                {r.insiderTip && (
+                  <Text style={styles.cardInsiderTip} numberOfLines={1}>💡 {r.insiderTip}</Text>
                 )}
               </View>
-              <Text style={styles.cardReason} numberOfLines={2}>{r.recommendationReason}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          ))
+        )}
         <View style={styles.bottomPad} />
       </ScrollView>
     </SafeAreaView>
@@ -331,5 +388,65 @@ const styles = StyleSheet.create({
   },
   bottomPad: {
     height: Spacing.xl,
+  },
+  filterBar: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  savedSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  savedSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.text,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sortChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  sortChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  sortChipTextActive: {
+    color: '#fff',
+  },
+  cardInsiderTip: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 3,
+    fontStyle: 'italic',
+  },
+  searchEmpty: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+  },
+  searchEmptyText: {
+    ...Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
   },
 });

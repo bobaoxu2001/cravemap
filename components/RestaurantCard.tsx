@@ -7,9 +7,10 @@ import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
+  topCheckIn?: { userName: string; hypeRating: string; review?: string; tasteTags?: string[] };
 }
 
-export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
+export default function RestaurantCard({ restaurant, topCheckIn }: RestaurantCardProps) {
   const router = useRouter();
 
   const handlePress = () => {
@@ -100,6 +101,15 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
           }
           return null;
         })()}
+        {topCheckIn && (
+          <View style={styles.snippetRow}>
+            <Text style={styles.snippetQuote} numberOfLines={2}>
+              {topCheckIn.hypeRating === 'worth_it' ? '✅' : topCheckIn.hypeRating === 'overhyped' ? '🚫' : '🤔'}{' '}
+              {topCheckIn.review ? `"${topCheckIn.review}"` : topCheckIn.tasteTags?.join(' · ') ?? ''}
+            </Text>
+            <Text style={styles.snippetAuthor}>— {topCheckIn.userName}</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -302,5 +312,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 6,
     letterSpacing: 0.2,
+  },
+  snippetRow: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  snippetQuote: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 15,
+    fontStyle: 'italic',
+  },
+  snippetAuthor: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 2,
+    fontWeight: '600',
   },
 });

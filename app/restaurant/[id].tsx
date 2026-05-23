@@ -10,6 +10,7 @@ import {
   Linking,
   Alert,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -170,6 +171,13 @@ export default function RestaurantDetail() {
     }
   }, [helpfulLoading, helpfulMarked, isSupabaseMode, router, userId]);
 
+  const handleShare = useCallback(() => {
+    Share.share({
+      message: `${restaurant?.name} in ${restaurant?.neighborhood} — ${restaurant?.recommendationReason}. Check it out on CraveMap!`,
+      title: restaurant?.name,
+    }).catch(() => {});
+  }, [restaurant]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -267,15 +275,61 @@ export default function RestaurantDetail() {
               <Text style={styles.trustStatSub}>of locals approve</Text>
             </View>
             <View style={styles.trustStat}>
-              <Text style={[styles.trustStatValue, { color: Colors.primary }]}>{restaurant.verifiedCheckIns.toLocaleString()}</Text>
+              <Text style={[styles.trustStatValue, {
+                color: restaurant.verifiedCheckIns < 10 ? Colors.textMuted : Colors.primary
+              }]}>
+                {restaurant.verifiedCheckIns < 10 ? 'Be first' : restaurant.verifiedCheckIns.toLocaleString()}
+              </Text>
               <Text style={styles.trustStatLabel}>Verified Visits</Text>
-              <Text style={styles.trustStatSub}>real check-ins</Text>
+              <Text style={styles.trustStatSub}>{restaurant.verifiedCheckIns < 10 ? 'no visits yet' : 'real check-ins'}</Text>
             </View>
           </View>
 
           <View style={styles.reasonCard}>
             <Text style={styles.reasonText}>💡 {restaurant.recommendationReason}</Text>
           </View>
+
+          {/* Community teaser */}
+          {checkIns.length > 0 ? (
+            <View style={styles.communityTeaser}>
+              <Text style={styles.communityTeaserTitle}>What locals are saying</Text>
+              {[...checkIns].sort((a, b) => b.helpful - a.helpful).slice(0, 2).map((ci) => (
+                <View key={ci.id} style={styles.communitySnippet}>
+                  <Image source={{ uri: ci.userAvatar }} style={styles.communityAvatar} />
+                  <View style={styles.communitySnippetBody}>
+                    <View style={styles.communitySnippetHeader}>
+                      <Text style={styles.communitySnippetName}>{ci.userName}</Text>
+                      {ci.locationVerified && (
+                        <View style={styles.communityVerifiedBadge}>
+                          <Ionicons name="shield-checkmark" size={10} color={Colors.green} />
+                          <Text style={styles.communityVerifiedText}>verified</Text>
+                        </View>
+                      )}
+                      <Text style={[
+                        styles.communityHypePill,
+                        { color: ci.hypeRating === 'worth_it' ? Colors.green : ci.hypeRating === 'overhyped' ? '#C44545' : Colors.textMuted }
+                      ]}>
+                        {ci.hypeRating === 'worth_it' ? '✅ Worth it' : ci.hypeRating === 'overhyped' ? '🚫 Overhyped' : '🤔 Not sure'}
+                      </Text>
+                    </View>
+                    {ci.review ? (
+                      <Text style={styles.communitySnippetText} numberOfLines={2}>{ci.review}</Text>
+                    ) : ci.tasteTags.length > 0 ? (
+                      <Text style={styles.communitySnippetText} numberOfLines={1}>{ci.tasteTags.join(' · ')}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.firstCheckInCTA}>
+              <Text style={styles.firstCheckInEmoji}>👋</Text>
+              <View style={styles.firstCheckInBody}>
+                <Text style={styles.firstCheckInTitle}>No locals have checked in yet</Text>
+                <Text style={styles.firstCheckInSub}>Be the first — your take shapes what others see.</Text>
+              </View>
+            </View>
+          )}
 
           <View style={styles.divider} />
 
@@ -449,10 +503,7 @@ export default function RestaurantDetail() {
         <TouchableOpacity style={styles.actionIconBtn} onPress={openMaps}>
           <Ionicons name="navigate-outline" size={22} color={Colors.text} />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionIconBtn}
-          onPress={() => Alert.alert('Share', `Share ${restaurant.name} with friends?`)}
-        >
+        <TouchableOpacity style={styles.actionIconBtn} onPress={handleShare}>
           <Ionicons name="share-outline" size={22} color={Colors.text} />
         </TouchableOpacity>
       </View>
@@ -897,4 +948,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  communityTeaser: { marginTop: Spacing.md, marginBottom: 4 },
+  communityTeaserTitle: { ...Typography.label, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
+  communitySnippet: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  communityAvatar: { width: 36, height: 36, borderRadius: 18 },
+  communitySnippetBody: { flex: 1 },
+  communitySnippetHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: 3, flexWrap: 'wrap' },
+  communitySnippetName: { fontSize: 12, fontWeight: '700', color: Colors.text },
+  communityVerifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  communityVerifiedText: { fontSize: 10, color: Colors.green, fontWeight: '600' },
+  communityHypePill: { fontSize: 11, fontWeight: '600', marginLeft: 'auto' },
+  communitySnippetText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
+  firstCheckInCTA: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.warmBackground, borderRadius: BorderRadius.md, padding: Spacing.md, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  firstCheckInEmoji: { fontSize: 28 },
+  firstCheckInBody: { flex: 1 },
+  firstCheckInTitle: { ...Typography.label, fontWeight: '700', color: Colors.text },
+  firstCheckInSub: { ...Typography.caption, color: Colors.textMuted, marginTop: 2 },
 });

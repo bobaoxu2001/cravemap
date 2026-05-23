@@ -8,18 +8,31 @@ import {
   SafeAreaView,
   TextInput,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
-import { Restaurant, UserProfile } from '../../types';
+import { Restaurant, UserProfile, CheckIn } from '../../types';
 import { getAllRestaurants } from '../../src/services/restaurants';
+import { getAllCheckIns } from '../../src/services/checkIns';
 import { getCurrentProfile } from '../../src/services/profile';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
 import RestaurantCard from '../../components/RestaurantCard';
+import VoiceMic from '../../components/VoiceMic';
 
 const CITIES = ['New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
+
+const QUICK_FILTERS = [
+  { key: 'all', label: 'All', emoji: '✨' },
+  { key: 'actually-spicy', label: 'Spicy', emoji: '🌶️' },
+  { key: 'local-approved', label: 'Local', emoji: '🏘️' },
+  { key: 'hidden-gems', label: 'Hidden Gems', emoji: '💎' },
+  { key: 'late-night', label: 'Late Night', emoji: '🌙' },
+  { key: 'student-favorites', label: 'Budget', emoji: '🎓' },
+  { key: 'culture-approved', label: 'Authentic', emoji: '🍜' },
+];
 
 const sections = [
   { key: 'trending-week', emoji: '🔥', title: 'Trending this week', subtitle: (city: string) => `What people in ${city} are talking about right now` },
@@ -72,11 +85,15 @@ export default function Home() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [recentCheckIns, setRecentCheckIns] = useState<CheckIn[]>([]);
 
   useEffect(() => {
     Promise.all([getAllRestaurants(), getCurrentProfile()])
       .then(([r, p]) => { setRestaurants(r); setProfile(p); })
       .finally(() => setLoading(false));
+    getAllCheckIns().then(setRecentCheckIns);
   }, []);
 
   if (loading) {
@@ -88,6 +105,27 @@ export default function Home() {
   }
 
   const firstName = profile?.name.split(' ')[0] ?? 'there';
+
+  // Search results
+  const trimmedQuery = searchQuery.trim();
+  const searchResults = trimmedQuery
+    ? restaurants.filter((r) => {
+        const haystack = (r.name + ' ' + r.cuisine + ' ' + r.neighborhood + ' ' + r.tags.join(' ')).toLowerCase();
+        return haystack.includes(trimmedQuery.toLowerCase());
+      })
+    : [];
+
+  // Filter helpers
+  const isFiltered = activeFilter !== 'all' && !trimmedQuery;
+  const filteredSections = isFiltered
+    ? sections.filter((sec) => sec.key === activeFilter || sec.key === 'taste-match')
+    : sections;
+
+  const cityList = restaurants.filter((r) => r.city === selectedCity);
+  const filteredCityList = isFiltered
+    ? cityList.filter((r) => r.categories.includes(activeFilter))
+    : cityList;
+  const featured = [...filteredCityList].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent)[0];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -109,7 +147,7 @@ export default function Home() {
             <Text style={styles.citySelectorText}>{selectedCity.split(' ')[0]}</Text>
             <Ionicons name="chevron-down" size={12} color={Colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.notifBtn}>
+          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/(tabs)/rewards')}>
             <Ionicons name="notifications-outline" size={22} color={Colors.text} />
             <View style={styles.notifDot} />
           </TouchableOpacity>
@@ -153,71 +191,181 @@ export default function Home() {
               style={styles.searchInput}
               placeholder="Search restaurants, cuisines..."
               placeholderTextColor={Colors.textMuted}
-              editable={false}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
             />
-            <View style={styles.searchFilter}>
-              <Ionicons name="options-outline" size={16} color={Colors.primary} />
-            </View>
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            ) : (
+              <VoiceMic
+                restaurants={restaurants}
+                onResult={() => router.push('/voice-results')}
+              />
+            )}
           </View>
         </View>
 
-        {/* Check-in CTA */}
-        <TouchableOpacity
-          style={styles.checkInBanner}
-          onPress={() => router.push('/check-in')}
-          activeOpacity={0.85}
+        {/* Quick filter chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.quickFilterRow}
+          contentContainerStyle={{ paddingRight: Spacing.md }}
         >
-          <View style={styles.checkInLeft}>
-            <Text style={styles.checkInEmoji}>🍽️</Text>
-            <View>
-              <Text style={styles.checkInTitle}>Had a great meal?</Text>
-              <Text style={styles.checkInSub}>Earn Founding Scout points</Text>
-            </View>
-          </View>
-          <View style={styles.checkInBtn}>
-            <Text style={styles.checkInBtnText}>Check In</Text>
-            <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
-          </View>
-        </TouchableOpacity>
+          {QUICK_FILTERS.map((filter) => {
+            const isActive = activeFilter === filter.key;
+            return (
+              <TouchableOpacity
+                key={filter.key}
+                style={[styles.quickFilterChip, isActive && styles.quickFilterChipActive]}
+                onPress={() => setActiveFilter(filter.key)}
+                activeOpacity={0.75}
+              >
+                <Text style={{ fontSize: 13 }}>{filter.emoji}</Text>
+                <Text style={[styles.quickFilterChipText, isActive && styles.quickFilterChipTextActive]}>
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-        {/* Hero featured pick */}
-        {(() => {
-          const cityList = restaurants.filter((r) => r.city === selectedCity);
-          const featured = [...cityList].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent)[0];
-          if (!featured) return null;
-          return (
-            <View style={styles.heroSection}>
-              <View style={styles.heroLabelRow}>
-                <View style={styles.heroAccentDot} />
-                <Text style={styles.heroLabel}>TODAY'S PICK FOR YOU</Text>
-              </View>
-              <Text style={styles.heroTitle}>🎯 {featured.name}</Text>
-              <Text style={styles.heroSub}>
-                {featured.tasteMatchPercent}% of Spicy Adventurers in {selectedCity.split(' ')[0]} who tried {featured.cuisine.split(' - ')[0].toLowerCase()} this month said this was worth it.
+        {/* Search results view */}
+        {trimmedQuery ? (
+          <>
+            <View style={styles.searchResultsHeader}>
+              <Text style={styles.searchResultsCount}>
+                {searchResults.length} spot{searchResults.length !== 1 ? 's' : ''} found for "{trimmedQuery}"
               </Text>
-              <View style={styles.heroCardWrap}>
-                <RestaurantCard restaurant={featured} />
+            </View>
+            {searchResults.map((r) => (
+              <TouchableOpacity
+                key={r.id}
+                style={styles.searchResultRow}
+                onPress={() => router.push('/restaurant/' + r.id)}
+                activeOpacity={0.7}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.searchResultName}>{r.name}</Text>
+                  <Text style={styles.searchResultSub}>{r.neighborhood} · {r.cuisine}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                  <Text style={styles.searchResultMatch}>{r.tasteMatchPercent}% match</Text>
+                  <Text style={[styles.searchResultSub, { textAlign: 'right' }]}>{r.price}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            {searchResults.length === 0 && (
+              <View style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.lg }}>
+                <Text style={[Typography.body, { color: Colors.textMuted, textAlign: 'center' }]}>
+                  No restaurants found. Try a different search.
+                </Text>
               </View>
-            </View>
-          );
-        })()}
+            )}
+          </>
+        ) : (
+          <>
+            {/* Check-in CTA */}
+            <TouchableOpacity
+              style={styles.checkInBanner}
+              onPress={() => router.push('/check-in')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.checkInLeft}>
+                <Text style={styles.checkInEmoji}>🍽️</Text>
+                <View>
+                  <Text style={styles.checkInTitle}>Had a great meal?</Text>
+                  <Text style={styles.checkInSub}>Earn Founding Scout points</Text>
+                </View>
+              </View>
+              <View style={styles.checkInBtn}>
+                <Text style={styles.checkInBtnText}>Check In</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+              </View>
+            </TouchableOpacity>
 
-        {/* Sections */}
-        {sections.map((sec) => {
-          const sectionRestaurants = getRestaurantsForSection(sec.key, selectedCity, restaurants);
-          if (sectionRestaurants.length === 0) return null;
-          return (
-            <View key={sec.key} style={styles.section}>
-              <SectionHeader
-                title={sec.title}
-                emoji={sec.emoji}
-                subtitle={sec.subtitle(selectedCity)}
-                onSeeAll={() => router.push('/map')}
-              />
-              <HorizontalScroll restaurants={sectionRestaurants} />
-            </View>
-          );
-        })}
+            {/* Hero featured pick */}
+            {featured && (
+              <View style={styles.heroSection}>
+                <View style={styles.heroLabelRow}>
+                  <View style={styles.heroAccentDot} />
+                  <Text style={styles.heroLabel}>TODAY'S PICK FOR YOU</Text>
+                </View>
+                <Text style={styles.heroTitle}>🎯 {featured.name}</Text>
+                <Text style={styles.heroSub}>
+                  {featured.tasteMatchPercent}% of Spicy Adventurers in {selectedCity.split(' ')[0]} who tried {featured.cuisine.split(' - ')[0].toLowerCase()} this month said this was worth it.
+                </Text>
+                <View style={styles.heroCardWrap}>
+                  <RestaurantCard
+                    restaurant={featured}
+                    topCheckIn={{ userName: 'Sarah K.', hypeRating: 'worth_it', review: 'Skip the menu, order the #6. Cash only but absolutely worth it.' }}
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Scout Activity */}
+            {searchQuery === '' && activeFilter === 'all' && recentCheckIns.length > 0 && (
+              <View style={styles.activitySection}>
+                <View style={styles.activityHeader}>
+                  <View style={styles.activityLiveDot} />
+                  <Text style={styles.activityTitle}>Scout Activity</Text>
+                  <Text style={styles.activitySub}>What locals checked in recently</Text>
+                </View>
+                {recentCheckIns.slice(0, 4).map((ci) => {
+                  const restaurant = restaurants.find((r) => r.id === ci.restaurantId);
+                  if (!restaurant) return null;
+                  return (
+                    <View key={ci.id} style={styles.activityRow}>
+                      <Image source={{ uri: ci.userAvatar }} style={styles.activityAvatar} />
+                      <View style={styles.activityBody}>
+                        <View style={styles.activityTopLine}>
+                          <Text style={styles.activityName}>{ci.userName}</Text>
+                          <Text style={styles.activityAt}> at </Text>
+                          <Text style={styles.activityRestaurant} numberOfLines={1}>{restaurant.name}</Text>
+                        </View>
+                        {ci.review ? (
+                          <Text style={styles.activityReview} numberOfLines={2}>"{ci.review}"</Text>
+                        ) : null}
+                        <View style={styles.activityMeta}>
+                          <Text style={[
+                            styles.activityHype,
+                            { color: ci.hypeRating === 'worth_it' ? Colors.green : ci.hypeRating === 'overhyped' ? '#C44545' : Colors.textMuted }
+                          ]}>
+                            {ci.hypeRating === 'worth_it' ? '✅ Worth it' : ci.hypeRating === 'overhyped' ? '🚫 Overhyped' : '🤔 Not sure'}
+                          </Text>
+                          {ci.locationVerified && (
+                            <Text style={styles.activityVerified}>· ✓ Verified</Text>
+                          )}
+                        </View>
+                      </View>
+                      <Text style={styles.activityHelpful}>👍 {ci.helpful}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Sections */}
+            {filteredSections.map((sec) => {
+              const sectionRestaurants = getRestaurantsForSection(sec.key, selectedCity, restaurants);
+              if (sectionRestaurants.length === 0) return null;
+              return (
+                <View key={sec.key} style={styles.section}>
+                  <SectionHeader
+                    title={sec.title}
+                    emoji={sec.emoji}
+                    subtitle={sec.subtitle(selectedCity)}
+                    onSeeAll={() => router.push('/map')}
+                  />
+                  <HorizontalScroll restaurants={sectionRestaurants} />
+                </View>
+              );
+            })}
+          </>
+        )}
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -388,6 +536,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  quickFilterRow: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+  },
+  quickFilterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.card,
+  },
+  quickFilterChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  quickFilterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  quickFilterChipTextActive: {
+    color: '#fff',
+  },
+  searchResultsHeader: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  searchResultsCount: {
+    ...Typography.label,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  searchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  searchResultName: {
+    ...Typography.label,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  searchResultSub: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  searchResultMatch: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.green,
+  },
   checkInBanner: {
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
@@ -478,6 +686,106 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: Spacing.lg,
+  },
+  activitySection: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.warmBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  activityLiveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.green,
+  },
+  activityTitle: {
+    ...Typography.label,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  activitySub: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginLeft: 'auto',
+  },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  activityAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  activityBody: {
+    flex: 1,
+  },
+  activityTopLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  activityName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  activityAt: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  activityRestaurant: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary,
+    flex: 1,
+  },
+  activityReview: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  activityMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  activityHype: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  activityVerified: {
+    fontSize: 11,
+    color: Colors.green,
+    fontWeight: '600',
+  },
+  activityHelpful: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    fontWeight: '600',
+    alignSelf: 'center',
   },
   bottomPad: {
     height: Spacing.xl,

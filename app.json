@@ -40,6 +40,12 @@
     "scheme": "cravemap",
     "plugins": [
       "expo-router",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow CraveMap to use your microphone so you can search for restaurants by voice."
+        }
+      ],
       "expo-secure-store",
       [
         "expo-location",

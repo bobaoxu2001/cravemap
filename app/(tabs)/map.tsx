@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -113,6 +114,7 @@ export default function MapScreen() {
   const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mapSearch, setMapSearch] = useState('');
 
   useEffect(() => {
     getAllRestaurants().then(setAllRestaurants).finally(() => setLoading(false));
@@ -129,16 +131,22 @@ export default function MapScreen() {
       });
   }, [allRestaurants, selectedCity, sortBy]);
 
-  // Drop selection if the selected restaurant is no longer in the filtered set.
+  const visibleRestaurants = mapSearch.trim()
+    ? filtered.filter((r) =>
+        [r.name, r.cuisine, r.neighborhood].join(' ').toLowerCase().includes(mapSearch.toLowerCase())
+      )
+    : filtered;
+
+  // Drop selection if the selected restaurant is no longer in the visible set.
   useEffect(() => {
-    if (selectedId && !filtered.some((r) => r.id === selectedId)) {
+    if (selectedId && !visibleRestaurants.some((r) => r.id === selectedId)) {
       setSelectedId(null);
     }
-  }, [filtered, selectedId]);
+  }, [visibleRestaurants, selectedId]);
 
   const selected = useMemo(
-    () => (selectedId ? filtered.find((r) => r.id === selectedId) ?? null : null),
-    [filtered, selectedId]
+    () => (selectedId ? visibleRestaurants.find((r) => r.id === selectedId) ?? null : null),
+    [visibleRestaurants, selectedId]
   );
 
   if (loading) {
@@ -195,6 +203,24 @@ export default function MapScreen() {
         ))}
       </ScrollView>
 
+      {/* Search bar */}
+      <View style={styles.mapSearchBar}>
+        <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
+        <TextInput
+          style={styles.mapSearchInput}
+          placeholder="Search restaurants, cuisine..."
+          placeholderTextColor={Colors.textMuted}
+          value={mapSearch}
+          onChangeText={setMapSearch}
+        />
+        {mapSearch.length > 0 && (
+          <TouchableOpacity onPress={() => setMapSearch('')}>
+            <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+      {mapSearch.trim() && <Text style={styles.mapSearchCount}>{visibleRestaurants.length} result{visibleRestaurants.length === 1 ? '' : 's'} for "{mapSearch}"</Text>}
+
       {/* Sort options */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortBar} contentContainerStyle={styles.filterContent}>
         {SORT_OPTIONS.map((s) => (
@@ -210,20 +236,20 @@ export default function MapScreen() {
 
       {viewMode === 'list' ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContainer}>
-          <Text style={styles.resultCount}>{filtered.length} restaurants</Text>
-          {filtered.length === 0 ? (
+          <Text style={styles.resultCount}>{visibleRestaurants.length} restaurants</Text>
+          {visibleRestaurants.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No spots match these filters yet.</Text>
               <Text style={styles.emptySubtitle}>Try a different city or sort option.</Text>
             </View>
           ) : (
-            filtered.map((r) => <RestaurantListItem key={r.id} restaurant={r} />)
+            visibleRestaurants.map((r) => <RestaurantListItem key={r.id} restaurant={r} />)
           )}
         </ScrollView>
       ) : (
         <View style={styles.mapContainer}>
           <RestaurantMap
-            restaurants={filtered}
+            restaurants={visibleRestaurants}
             selectedId={selectedId}
             onSelect={setSelectedId}
           />
@@ -309,6 +335,30 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: Colors.primary,
     fontWeight: '700',
+  },
+  mapSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  mapSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.text,
+  },
+  mapSearchCount: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   sortBar: {
     maxHeight: 40,

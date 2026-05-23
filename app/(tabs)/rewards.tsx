@@ -31,7 +31,14 @@ const TASK_LABELS: Record<RewardTask['key'], { done: string; pending: string }> 
   twoInvites: { done: '2/2 invited', pending: '0/2 invited' },
 };
 
-const rewards = [
+const rewards: {
+  emoji: string;
+  title: string;
+  desc: string;
+  features?: string[];
+  color: string;
+  borderColor: string;
+}[] = [
   {
     emoji: '🏅',
     title: 'Founding Food Scout Badge',
@@ -42,7 +49,14 @@ const rewards = [
   {
     emoji: '⭐',
     title: 'Early Pro Access',
-    desc: 'Get 6 months of CraveMap Pro free — AI taste matching, exclusive restaurant drops, and priority support.',
+    desc: '6 months free when CraveMap Pro launches. Here\'s what you get:',
+    features: [
+      '🎯 AI taste matching — "people exactly like you" rankings',
+      '🔔 Drop alerts — new spots before they blow up',
+      '🗺️ Taste map — see where your food tribe eats',
+      '✈️ City unlock — full access when you travel',
+      '💬 Scout chat — direct line to other Founding Scouts',
+    ],
     color: '#F0F4FF',
     borderColor: '#7B9EFF',
   },
@@ -247,6 +261,9 @@ export default function Rewards() {
               <View style={styles.rewardInfo}>
                 <Text style={styles.rewardTitle}>{r.title}</Text>
                 <Text style={styles.rewardDesc}>{r.desc}</Text>
+                {r.features && r.features.map((f) => (
+                  <Text key={f} style={styles.rewardFeature}>{f}</Text>
+                ))}
               </View>
             </View>
           ))}
@@ -551,6 +568,12 @@ const styles = StyleSheet.create({
   rewardDesc: {
     ...Typography.caption,
     color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  rewardFeature: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 3,
     lineHeight: 18,
   },
   ctaSection: {
