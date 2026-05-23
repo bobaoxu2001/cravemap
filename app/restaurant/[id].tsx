@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Linking,
   Alert,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +25,13 @@ import {
 } from '../../src/services/saved';
 import { useAuth } from '../../src/hooks/useAuth';
 import { getBlockedUserIds } from '../../src/services/blocks';
-import TagChip from '../../components/TagChip';
+import {
+  computeTasteMatch,
+  getDecisionHeadline,
+  getPrimaryOrder,
+  getRecommendationProof,
+} from '../../src/lib/recommendations';
+import { getRestaurantShareUrl } from '../../src/lib/links';
 import CheckInCard from '../../components/CheckInCard';
 
 const DEMO_USER_ID = 'u001';
@@ -32,7 +39,7 @@ const DEMO_USER_ID = 'u001';
 export default function RestaurantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { session, isSupabaseMode } = useAuth();
+  const { session, isSupabaseMode, profile } = useAuth();
   const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
 
   const [saved, setSaved] = useState(false);
@@ -48,6 +55,13 @@ export default function RestaurantDetail() {
   const [helpfulLoading, setHelpfulLoading] = useState<Record<string, boolean>>({});
   // IDs of users the current user has blocked — filtered out of the check-in feed.
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+
+  // Personalized taste-match for this user. Falls back to the restaurant's
+  // baseline when the passport isn't complete (returns 0 if no restaurant).
+  const personalizedMatch = useMemo(
+    () => (restaurant ? computeTasteMatch(restaurant, profile) : 0),
+    [restaurant, profile]
+  );
 
   const loadData = useCallback(() => {
     // Load blocked IDs in parallel so we can filter them from the feed.
@@ -297,8 +311,26 @@ export default function RestaurantDetail() {
               have to guess. "match for you" = personalized; "local approve" =
               social proof from neighbors; "visits" = real check-in volume. */}
           <Text style={styles.statsLine}>
-            {restaurant.tasteMatchPercent}% match for you · {restaurant.localApprovedPercent}% locals approve · {restaurant.verifiedCheckIns.toLocaleString()} verified visits
+            {personalizedMatch}% match for you · {restaurant.localApprovedPercent}% locals approve · {restaurant.verifiedCheckIns.toLocaleString()} verified visits
           </Text>
+
+          <View style={styles.divider} />
+
+          <View style={styles.decisionCard}>
+            <View style={styles.decisionHeader}>
+              <Ionicons name="sparkles-outline" size={17} color={Colors.primary} />
+              <Text style={styles.decisionTitle}>
+                {getDecisionHeadline({ ...restaurant, tasteMatchPercent: personalizedMatch })}
+              </Text>
+            </View>
+            <Text style={styles.decisionOrder}>Order first: {getPrimaryOrder(restaurant)}</Text>
+            {getRecommendationProof({ ...restaurant, tasteMatchPercent: personalizedMatch }, profile).map((line) => (
+              <View key={line} style={styles.proofRow}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.green} />
+                <Text style={styles.proofText}>{line}</Text>
+              </View>
+            ))}
+          </View>
 
           <View style={styles.divider} />
 
@@ -460,7 +492,7 @@ export default function RestaurantDetail() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, styles.actionBtnPrimary]}
-          onPress={() => router.push('/check-in')}
+          onPress={() => router.push({ pathname: '/check-in', params: { restaurantId: restaurant.id } })}
           accessibilityRole="button"
           accessibilityLabel="Check in"
           accessibilityHint={`Open the check-in flow for ${restaurant.name}`}
@@ -480,7 +512,22 @@ export default function RestaurantDetail() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionIconCol}
-          onPress={() => Alert.alert('Share', `Share ${restaurant.name} with friends?`)}
+          onPress={async () => {
+            // Real share — points at the web landing page so recipients
+            // without the app see a "Download" CTA instead of a dead
+            // cravemap:// link. The page itself attempts the deep link
+            // for users who already have the app installed.
+            try {
+              const url = getRestaurantShareUrl(restaurant.id);
+              await Share.share({
+                message: `${restaurant.name} · ${restaurant.cuisine} · ${restaurant.neighborhood}\n\n${url}`,
+                title: restaurant.name,
+                url,
+              });
+            } catch {
+              // User cancelled or share is unavailable — no-op.
+            }
+          }}
           accessibilityRole="button"
           accessibilityLabel={`Share ${restaurant.name}`}
         >
@@ -673,6 +720,42 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.text,
     lineHeight: 24,
+  },
+  decisionCard: {
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#EEE5DB',
+  },
+  decisionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  decisionTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+    flex: 1,
+  },
+  decisionOrder: {
+    ...Typography.body,
+    color: Colors.text,
+    fontWeight: '600',
+    marginBottom: Spacing.sm,
+  },
+  proofRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 5,
+  },
+  proofText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    flex: 1,
+    lineHeight: 17,
   },
   sectionTitle: {
     ...Typography.h3,

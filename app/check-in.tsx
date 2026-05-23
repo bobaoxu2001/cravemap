@@ -12,9 +12,10 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { Restaurant } from '../types';
 import { getAllRestaurants } from '../src/services/restaurants';
@@ -26,8 +27,44 @@ import TagChip from '../components/TagChip';
 
 const DEMO_USER_ID = 'u001';
 
-const TOTAL_STEPS = 5;
+// Check-in is a post-visit action — users typically post from home or transit
+// after a meal, not on-site. Location verification is opt-in (a chip on the
+// final step) rather than a required step, so honest after-the-fact posts
+// don't get punished while genuine on-site visits can still earn the badge.
+const TOTAL_STEPS = 4;
 const MAX_PHOTOS = 6;
+
+// A check-in counts as location-verified when the device is within this many
+// meters of the restaurant. 200m absorbs typical urban GPS drift (worse
+// indoors) while still rejecting a check-in posted from home.
+const VERIFY_RADIUS_METERS = 200;
+// getCurrentPositionAsync has no built-in timeout and can hang indoors or on
+// a simulator with no location set — cap the wait so the UI never sticks.
+const LOCATION_TIMEOUT_MS = 12000;
+
+// Great-circle distance in meters between two coordinates (haversine).
+function distanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const earthRadius = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadius * Math.asin(Math.sqrt(a));
+}
+
+function formatDistance(meters: number): string {
+  return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`;
+}
+
+// Resolves to a fresh position, or null if the OS doesn't answer in time.
+async function getPositionOrTimeout(): Promise<Location.LocationObject | null> {
+  return Promise.race([
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), LOCATION_TIMEOUT_MS)),
+  ]);
+}
 
 const tasteTags = ['Spicy', 'Very Spicy', 'Savory', 'Sweet', 'Smoky', 'Sour', 'Umami', 'Light', 'Rich', 'Crispy'];
 const dietTags = ['Vegan', 'Vegetarian', 'Halal', 'Gluten-Free', 'Dairy-Free'];
@@ -83,7 +120,8 @@ export default function CheckIn() {
   const [selectedDietTags, setSelectedDietTags] = useState<string[]>([]);
   const [selectedSceneTags, setSelectedSceneTags] = useState<string[]>([]);
   const [hypeRating, setHypeRating] = useState<HypeRating | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'verifying' | 'verified'>('idle');
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'verifying' | 'verified' | 'failed'>('idle');
+  const [locationMessage, setLocationMessage] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -91,11 +129,27 @@ export default function CheckIn() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
 
-  const [sampleRestaurants, setSampleRestaurants] = useState<Restaurant[]>([]);
+  const params = useLocalSearchParams<{ restaurantId?: string }>();
+  const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+  const [restaurantQuery, setRestaurantQuery] = useState('');
 
   useEffect(() => {
-    getAllRestaurants().then((r) => setSampleRestaurants(r.slice(0, 6)));
-  }, []);
+    getAllRestaurants()
+      .then((r) => {
+        setAllRestaurants(r);
+        // Deep-linked from a restaurant page — lock that restaurant in and
+        // skip the picker so the user isn't asked to choose it again.
+        if (params.restaurantId) {
+          const match = r.find((x) => x.id === params.restaurantId);
+          if (match) {
+            setSelectedRestaurant(match);
+            setStep(2);
+          }
+        }
+      })
+      .finally(() => setRestaurantsLoading(false));
+  }, [params.restaurantId]);
 
   const toggleTag = (arr: string[], setArr: (v: string[]) => void, val: string) => {
     setArr(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);
@@ -208,12 +262,65 @@ export default function CheckIn() {
     }
   };
 
+  const verifyLocation = async () => {
+    if (!selectedRestaurant) return;
+    const { latitude, longitude } = selectedRestaurant;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setLocationStatus('failed');
+      setLocationMessage(
+        "This restaurant has no coordinates on file, so we can't verify it. You can still post your check-in."
+      );
+      return;
+    }
+
+    setLocationStatus('verifying');
+    setLocationMessage('');
+
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationStatus('failed');
+        setLocationMessage(
+          "Location access is off, so we can't confirm you're here. You can still post without the verified badge."
+        );
+        return;
+      }
+
+      const position = await getPositionOrTimeout();
+      if (!position) {
+        setLocationStatus('failed');
+        setLocationMessage(
+          "Couldn't get a location fix. Make sure location services are on, then try again, or skip."
+        );
+        return;
+      }
+
+      const distance = distanceInMeters(
+        position.coords.latitude,
+        position.coords.longitude,
+        latitude,
+        longitude
+      );
+
+      if (distance <= VERIFY_RADIUS_METERS) {
+        setLocationStatus('verified');
+        setLocationMessage(`Confirmed within ${formatDistance(distance)} of ${selectedRestaurant.name}.`);
+      } else {
+        setLocationStatus('failed');
+        setLocationMessage(
+          `You're about ${formatDistance(distance)} from ${selectedRestaurant.name}. Check in on-site to earn the verified badge, or skip.`
+        );
+      }
+    } catch {
+      setLocationStatus('failed');
+      setLocationMessage(
+        "Something went wrong checking your location. You can still post without the verified badge."
+      );
+    }
+  };
+
   const handleNext = () => {
     if (step < TOTAL_STEPS) {
-      if (step === TOTAL_STEPS - 1) {
-        setLocationStatus('verifying');
-        setTimeout(() => setLocationStatus('verified'), 2000);
-      }
       setStep(step + 1);
     } else {
       void handleSubmit();
@@ -230,8 +337,24 @@ export default function CheckIn() {
     'Add photos',
     'Write your review',
     'Rate & tag',
-    'Verify location',
   ];
+
+  if (restaurantsLoading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  const queryTrimmed = restaurantQuery.trim().toLowerCase();
+  const filteredRestaurants = queryTrimmed
+    ? allRestaurants.filter((r) =>
+        r.name.toLowerCase().includes(queryTrimmed) ||
+        r.neighborhood.toLowerCase().includes(queryTrimmed) ||
+        r.cuisine.toLowerCase().includes(queryTrimmed)
+      )
+    : allRestaurants;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -251,27 +374,55 @@ export default function CheckIn() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.stepTitle}>{stepTitles[step - 1]}</Text>
 
-        {/* Step 1: Restaurant selection */}
+        {/* Step 1: Restaurant selection — searchable list of all restaurants.
+            Used to show only the first 6, which made the picker unusable for
+            anyone whose target restaurant wasn't in that slice. */}
         {step === 1 && (
           <View style={styles.restaurantList}>
-            {sampleRestaurants.map((r) => (
-              <TouchableOpacity
-                key={r.id}
-                style={[styles.restaurantOption, selectedRestaurant?.id === r.id && styles.restaurantOptionSelected]}
-                onPress={() => setSelectedRestaurant(r)}
-                activeOpacity={0.8}
-              >
-                <Image source={{ uri: r.images[0] }} style={styles.restaurantOptionImage} />
-                <View style={styles.restaurantOptionInfo}>
-                  <Text style={styles.restaurantOptionName}>{r.name}</Text>
-                  <Text style={styles.restaurantOptionSub}>{r.neighborhood} · {r.cuisine}</Text>
-                  <Text style={styles.restaurantOptionAddr} numberOfLines={1}>{r.address}</Text>
-                </View>
-                {selectedRestaurant?.id === r.id && (
-                  <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
+            <View style={styles.searchBox}>
+              <Ionicons name="search" size={18} color={Colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                value={restaurantQuery}
+                onChangeText={setRestaurantQuery}
+                placeholder="Search by name, cuisine, or neighborhood"
+                placeholderTextColor={Colors.textMuted}
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {restaurantQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setRestaurantQuery('')}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                >
+                  <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+            {filteredRestaurants.length === 0 ? (
+              <Text style={styles.noResults}>No restaurants found. Try a different search.</Text>
+            ) : (
+              filteredRestaurants.map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={[styles.restaurantOption, selectedRestaurant?.id === r.id && styles.restaurantOptionSelected]}
+                  onPress={() => setSelectedRestaurant(r)}
+                  activeOpacity={0.8}
+                >
+                  <Image source={{ uri: r.images[0] }} style={styles.restaurantOptionImage} />
+                  <View style={styles.restaurantOptionInfo}>
+                    <Text style={styles.restaurantOptionName}>{r.name}</Text>
+                    <Text style={styles.restaurantOptionSub}>{r.neighborhood} · {r.cuisine}</Text>
+                    <Text style={styles.restaurantOptionAddr} numberOfLines={1}>{r.address}</Text>
+                  </View>
+                  {selectedRestaurant?.id === r.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         )}
 
@@ -414,64 +565,6 @@ export default function CheckIn() {
           </View>
         )}
 
-        {/* Step 5: Location verification */}
-        {step === 5 && (
-          <View style={styles.locationSection}>
-            <View style={styles.locationCard}>
-              {locationStatus === 'idle' && (
-                <>
-                  <Ionicons name="location-outline" size={48} color={Colors.textMuted} />
-                  <Text style={styles.locationTitle}>Location Verification</Text>
-                  <Text style={styles.locationDesc}>
-                    Verifying you were actually at {selectedRestaurant?.name} adds credibility to your check-in.
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.verifyBtn}
-                    onPress={() => {
-                      setLocationStatus('verifying');
-                      setTimeout(() => setLocationStatus('verified'), 2000);
-                    }}
-                  >
-                    <Text style={styles.verifyBtnText}>Verify My Location</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {locationStatus === 'verifying' && (
-                <>
-                  <Ionicons name="locate-outline" size={48} color={Colors.accent} />
-                  <Text style={styles.locationTitle}>Verifying...</Text>
-                  <Text style={styles.locationDesc}>Checking your location against restaurant coordinates.</Text>
-                  <View style={styles.verifyingDots}>
-                    <Text style={styles.verifyingDotText}>● ● ●</Text>
-                  </View>
-                </>
-              )}
-
-              {locationStatus === 'verified' && (
-                <>
-                  <View style={styles.verifiedCircle}>
-                    <Ionicons name="checkmark" size={40} color="#fff" />
-                  </View>
-                  <Text style={[styles.locationTitle, { color: Colors.green }]}>Location Verified! ✅</Text>
-                  <Text style={styles.locationDesc}>
-                    Your check-in will show the verified badge — this makes it 3x more helpful to other foodies.
-                  </Text>
-                  <View style={styles.verifiedBadge}>
-                    <Ionicons name="shield-checkmark" size={16} color={Colors.green} />
-                    <Text style={styles.verifiedBadgeText}>+50 bonus points for verified check-in</Text>
-                  </View>
-                </>
-              )}
-            </View>
-
-            {locationStatus !== 'verified' && !submitting && (
-              <TouchableOpacity style={styles.skipVerify} onPress={() => void handleSubmit()}>
-                <Text style={styles.skipVerifyText}>Skip verification (no bonus points)</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
       </ScrollView>
 
       {/* Navigation */}
@@ -479,6 +572,53 @@ export default function CheckIn() {
         {submitError ? (
           <Text style={styles.submitError}>{submitError}</Text>
         ) : null}
+
+        {/* Opt-in on-site verification — only on the final step. Check-ins
+            are post-visit by default; tapping this tries a GPS fix and
+            adds the verified badge only if the user is actually at the
+            restaurant. After-the-fact posters just hit Post below. */}
+        {step === TOTAL_STEPS && locationStatus !== 'verified' && (
+          <TouchableOpacity
+            style={styles.verifyChip}
+            onPress={() => void verifyLocation()}
+            disabled={locationStatus === 'verifying'}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Verify I am at this restaurant"
+            accessibilityHint="Runs a GPS check and adds the verified badge if you are on-site"
+          >
+            {locationStatus === 'verifying' ? (
+              <>
+                <ActivityIndicator size="small" color={Colors.primary} />
+                <Text style={styles.verifyChipText}>Checking your location…</Text>
+              </>
+            ) : locationStatus === 'failed' ? (
+              <>
+                <Ionicons name="location-outline" size={16} color={Colors.textSecondary} />
+                <Text style={styles.verifyChipText} numberOfLines={2}>
+                  {locationMessage} Tap to retry.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="location-outline" size={16} color={Colors.primary} />
+                <Text style={styles.verifyChipText}>
+                  At the restaurant? Tap to verify (+50 bonus)
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {step === TOTAL_STEPS && locationStatus === 'verified' && (
+          <View style={[styles.verifyChip, styles.verifyChipVerified]}>
+            <Ionicons name="shield-checkmark" size={16} color={Colors.green} />
+            <Text style={[styles.verifyChipText, styles.verifyChipTextVerified]}>
+              Verified · +50 bonus
+            </Text>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[styles.nextBtn, !canNext() && styles.nextBtnDisabled]}
           onPress={handleNext}
@@ -581,6 +721,28 @@ const styles = StyleSheet.create({
   },
   restaurantList: {
     gap: Spacing.sm,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.text,
+  },
+  noResults: {
+    ...Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: Spacing.lg,
   },
   restaurantOption: {
     flexDirection: 'row',
@@ -815,77 +977,33 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '700',
   },
-  locationSection: {
-    gap: Spacing.md,
-  },
-  locationCard: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    alignItems: 'center',
-    gap: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  locationTitle: {
-    ...Typography.h3,
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  locationDesc: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  verifyBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  verifyBtnText: {
-    ...Typography.label,
-    color: '#fff',
-    fontWeight: '700',
-  },
-  verifyingDots: {
-    marginTop: Spacing.sm,
-  },
-  verifyingDotText: {
-    fontSize: 20,
-    color: Colors.accent,
-    letterSpacing: 4,
-  },
-  verifiedCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.green,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  verifiedBadge: {
+  verifyChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.xs,
-    backgroundColor: '#E8F5EE',
+    backgroundColor: Colors.secondary,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  verifiedBadgeText: {
-    ...Typography.label,
+  verifyChipVerified: {
+    backgroundColor: '#E8F5EE',
+    borderColor: Colors.green,
+  },
+  verifyChipText: {
+    ...Typography.caption,
+    color: Colors.text,
+    fontWeight: '500',
+    flexShrink: 1,
+    textAlign: 'center',
+  },
+  verifyChipTextVerified: {
     color: Colors.green,
     fontWeight: '600',
-  },
-  skipVerify: {
-    alignItems: 'center',
-  },
-  skipVerifyText: {
-    ...Typography.body,
-    color: Colors.textMuted,
   },
   navBar: {
     position: 'absolute',
