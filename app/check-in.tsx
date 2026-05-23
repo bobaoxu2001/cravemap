@@ -19,8 +19,9 @@ import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { Restaurant } from '../types';
 import { getAllRestaurants } from '../src/services/restaurants';
 import { createCheckIn } from '../src/services/checkIns';
-import { getTastePersona } from '../src/services/profile';
+import { getTastePersona, getCurrentProfile } from '../src/services/profile';
 import { useAuth } from '../src/hooks/useAuth';
+import { getPetStats, getXPForCheckIn, PetStats } from '../src/services/petSystem';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
 import AnimatedMascot from '../components/AnimatedMascot';
@@ -90,6 +91,9 @@ export default function CheckIn() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitWarning, setSubmitWarning] = useState('');
+  const [xpEarned, setXpEarned] = useState(50);
+  const [petStatsBefore, setPetStatsBefore] = useState<PetStats | null>(null);
+  const [petStatsAfter, setPetStatsAfter] = useState<PetStats | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
 
@@ -200,6 +204,16 @@ export default function CheckIn() {
       });
       if (result.warning) {
         setSubmitWarning(result.warning);
+      }
+      // Capture pet state before/after for the level-up display
+      const profileBefore = await getCurrentProfile();
+      if (profileBefore) {
+        setPetStatsBefore(getPetStats(profileBefore));
+        const earned = getXPForCheckIn(locationStatus === 'verified');
+        setXpEarned(earned);
+        // Simulate post-check-in profile (increment check-in count)
+        const profileAfter = { ...profileBefore, checkInCount: profileBefore.checkInCount + 1 };
+        setPetStatsAfter(getPetStats(profileAfter));
       }
       setShowSuccess(true);
     } catch (err) {
@@ -519,15 +533,38 @@ export default function CheckIn() {
                 <Text style={styles.warningBannerText}>{submitWarning}</Text>
               </View>
             ) : null}
-            <View style={styles.pointsRow}>
-              <Text style={styles.pointsEarned}>+200 points earned</Text>
+            {/* XP earned */}
+            <View style={styles.xpRow}>
+              <View style={styles.xpBadge}>
+                <Text style={styles.xpBadgeText}>+{xpEarned} XP</Text>
+              </View>
               {locationStatus === 'verified' && (
-                <Text style={styles.pointsBonus}>+50 verification bonus</Text>
+                <View style={[styles.xpBadge, styles.xpBadgeBonus]}>
+                  <Text style={[styles.xpBadgeText, { color: Colors.green }]}>✓ Verified bonus</Text>
+                </View>
               )}
             </View>
-            <Text style={styles.scoutProgress}>
-              Founding Scout progress: 2/3 check-ins done
-            </Text>
+
+            {/* Level-up banner */}
+            {petStatsBefore && petStatsAfter && petStatsAfter.level > petStatsBefore.level && (
+              <View style={styles.levelUpBanner}>
+                <Text style={styles.levelUpText}>
+                  🎉 Level Up! {petStatsAfter.emoji} {petStatsAfter.titleZh} reached!
+                </Text>
+              </View>
+            )}
+
+            {/* Pet progress bar */}
+            {petStatsAfter && !petStatsAfter.isMaxLevel && (
+              <View style={styles.petProgressRow}>
+                <Text style={styles.petProgressLabel}>
+                  {petStatsAfter.emoji} {petStatsAfter.titleZh} · {petStatsAfter.totalXP} XP
+                </Text>
+                <Text style={styles.petProgressHint}>
+                  {petStatsAfter.xpToNextLevel} XP to {petStatsAfter.nextLevel?.titleZh}
+                </Text>
+              </View>
+            )}
             <TouchableOpacity
               style={styles.successBtn}
               onPress={() => {
@@ -948,25 +985,58 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  pointsRow: {
+  xpRow: {
+    flexDirection: 'row',
     gap: Spacing.xs,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
   },
-  pointsEarned: {
+  xpBadge: {
+    backgroundColor: '#F0FBF5',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.green + '40',
+  },
+  xpBadgeBonus: {
+    backgroundColor: '#FFF4E6',
+    borderColor: Colors.accent + '40',
+  },
+  xpBadgeText: {
     ...Typography.label,
     color: Colors.green,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 14,
   },
-  pointsBonus: {
+  levelUpBanner: {
+    backgroundColor: '#FFF4E6',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.accent + '60',
+    alignItems: 'center',
+  },
+  levelUpText: {
     ...Typography.label,
-    color: Colors.accent,
+    color: Colors.text,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  petProgressRow: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  petProgressLabel: {
+    ...Typography.label,
+    color: Colors.text,
     fontWeight: '600',
   },
-  scoutProgress: {
+  petProgressHint: {
     ...Typography.caption,
     color: Colors.textMuted,
-    textAlign: 'center',
   },
   warningBanner: {
     flexDirection: 'row',

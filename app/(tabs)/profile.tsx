@@ -21,6 +21,7 @@ import { createInvite, redeemInvite } from '../../src/services/invites';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 import Mascot from '../../components/Mascot';
+import PetCard from '../../components/PetCard';
 
 const DEMO_USER_ID = 'u001';
 
@@ -212,6 +213,11 @@ export default function Profile() {
               <Text style={styles.statLabel}>Verified</Text>
             </View>
           </View>
+        </View>
+
+        {/* Pet upgrade card */}
+        <View style={styles.petCardWrap}>
+          <PetCard profile={profile} />
         </View>
 
         {/* Taste Passport */}
@@ -487,6 +493,10 @@ const styles = StyleSheet.create({
     width: 1,
     height: 30,
     backgroundColor: Colors.border,
+  },
+  petCardWrap: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
   },
   section: {
     backgroundColor: Colors.card,
