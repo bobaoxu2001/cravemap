@@ -42,6 +42,13 @@ function getGreeting() {
   return 'Good evening';
 }
 
+function getGreetingEmoji() {
+  const h = new Date().getHours();
+  if (h < 12) return '☀️';
+  if (h < 18) return '🌤️';
+  return '🌙';
+}
+
 function getRestaurantsForSection(key: string, city: string, allRestaurants: Restaurant[]) {
   let list = city ? allRestaurants.filter((r) => r.city === city) : allRestaurants;
   if (key === 'taste-match') {
@@ -80,24 +87,31 @@ export default function Home() {
     );
   }
 
+  const firstName = profile?.name.split(' ')[0] ?? 'there';
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.logoSm}>好吃GO</Text>
-          <Text style={styles.greeting}>{getGreeting()}, {profile?.name.split(' ')[0] ?? 'there'}</Text>
+          <View style={styles.greetingRow}>
+            <Text style={styles.greetingEmoji}>{getGreetingEmoji()}</Text>
+            <Text style={styles.greeting}>{getGreeting()}, {firstName}</Text>
+          </View>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.citySelector}
             onPress={() => setCityDropdownOpen(!cityDropdownOpen)}
           >
+            <Ionicons name="location" size={12} color={Colors.primary} />
             <Text style={styles.citySelectorText}>{selectedCity.split(' ')[0]}</Text>
-            <Ionicons name="chevron-down" size={14} color={Colors.primary} />
+            <Ionicons name="chevron-down" size={12} color={Colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.notifBtn}>
             <Ionicons name="notifications-outline" size={22} color={Colors.text} />
+            <View style={styles.notifDot} />
           </TouchableOpacity>
         </View>
       </View>
@@ -111,6 +125,7 @@ export default function Home() {
               style={[styles.dropdownItem, selectedCity === c && styles.dropdownItemActive]}
               onPress={() => { setSelectedCity(c); setCityDropdownOpen(false); }}
             >
+              {selectedCity === c && <Ionicons name="checkmark" size={14} color={Colors.primary} />}
               <Text style={[styles.dropdownText, selectedCity === c && styles.dropdownTextActive]}>{c}</Text>
             </TouchableOpacity>
           ))}
@@ -127,6 +142,7 @@ export default function Home() {
           <Text style={styles.personaChipText}>
             🌶️ Spicy Adventurer · {profile?.tastePreferences.length ?? 0} cuisines saved
           </Text>
+          <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
         </TouchableOpacity>
 
         {/* Search bar */}
@@ -139,6 +155,9 @@ export default function Home() {
               placeholderTextColor={Colors.textMuted}
               editable={false}
             />
+            <View style={styles.searchFilter}>
+              <Ionicons name="options-outline" size={16} color={Colors.primary} />
+            </View>
           </View>
         </View>
 
@@ -148,12 +167,16 @@ export default function Home() {
           onPress={() => router.push('/check-in')}
           activeOpacity={0.85}
         >
-          <View>
-            <Text style={styles.checkInTitle}>Had a great meal?</Text>
-            <Text style={styles.checkInSub}>Post a check-in and earn Founding Scout points</Text>
+          <View style={styles.checkInLeft}>
+            <Text style={styles.checkInEmoji}>🍽️</Text>
+            <View>
+              <Text style={styles.checkInTitle}>Had a great meal?</Text>
+              <Text style={styles.checkInSub}>Earn Founding Scout points</Text>
+            </View>
           </View>
           <View style={styles.checkInBtn}>
-            <Text style={styles.checkInBtnText}>+ Check In</Text>
+            <Text style={styles.checkInBtnText}>Check In</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
           </View>
         </TouchableOpacity>
 
@@ -164,7 +187,11 @@ export default function Home() {
           if (!featured) return null;
           return (
             <View style={styles.heroSection}>
-              <Text style={styles.heroTitle}>🎯 Today&apos;s Pick for You</Text>
+              <View style={styles.heroLabelRow}>
+                <View style={styles.heroAccentDot} />
+                <Text style={styles.heroLabel}>TODAY'S PICK FOR YOU</Text>
+              </View>
+              <Text style={styles.heroTitle}>🎯 {featured.name}</Text>
               <Text style={styles.heroSub}>
                 {featured.tasteMatchPercent}% of Spicy Adventurers in {selectedCity.split(' ')[0]} who tried {featured.cuisine.split(' - ')[0].toLowerCase()} this month said this was worth it.
               </Text>
@@ -208,61 +235,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
     backgroundColor: Colors.background,
     zIndex: 10,
-  },
-  logo: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.primary,
   },
   headerLeft: {
     flex: 1,
   },
   logoSm: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: Colors.primary,
-    letterSpacing: 1,
-  },
-  greeting: {
-    ...Typography.h2,
-    color: Colors.text,
-    marginTop: 2,
-  },
-  personaChip: {
-    alignSelf: 'flex-start',
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.secondary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.primary + '30',
-  },
-  personaChipText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  heroSection: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-  },
-  heroTitle: {
-    ...Typography.h2,
-    color: Colors.text,
+    letterSpacing: 1.5,
     marginBottom: 2,
   },
-  heroSub: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  heroCardWrap: {
-    alignItems: 'flex-start',
+  greetingEmoji: {
+    fontSize: 18,
+  },
+  greeting: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.text,
+    letterSpacing: -0.3,
   },
   headerRight: {
     flexDirection: 'row',
@@ -276,19 +276,33 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.primary + '25',
   },
   citySelectorText: {
-    ...Typography.label,
+    fontSize: 12,
+    fontWeight: '700',
     color: Colors.primary,
-    fontWeight: '600',
   },
   notifBtn: {
     padding: 4,
+    position: 'relative',
+  },
+  notifDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+    borderWidth: 1.5,
+    borderColor: Colors.background,
   },
   dropdown: {
     position: 'absolute',
-    top: 56,
+    top: 62,
     right: Spacing.md,
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.md,
@@ -301,8 +315,12 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
     overflow: 'hidden',
+    minWidth: 170,
   },
   dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
   },
@@ -314,6 +332,26 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   dropdownTextActive: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  personaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+    gap: 4,
+  },
+  personaChipText: {
+    fontSize: 12,
     color: Colors.primary,
     fontWeight: '600',
   },
@@ -331,43 +369,112 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
     ...Typography.body,
     color: Colors.text,
   },
+  searchFilter: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   checkInBanner: {
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.primary + '30',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  checkInLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  checkInEmoji: {
+    fontSize: 26,
   },
   checkInTitle: {
-    ...Typography.label,
-    color: '#fff',
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 2,
+    color: Colors.text,
+    marginBottom: 1,
   },
   checkInSub: {
     ...Typography.caption,
-    color: 'rgba(255,255,255,0.8)',
-    maxWidth: 200,
+    color: Colors.textSecondary,
   },
   checkInBtn: {
-    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: Colors.secondary,
     borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.sm - 2,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
   },
   checkInBtnText: {
-    ...Typography.label,
+    fontSize: 12,
     color: Colors.primary,
     fontWeight: '700',
+  },
+  heroSection: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  heroLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  heroAccentDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+  },
+  heroLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primary,
+    letterSpacing: 1.5,
+  },
+  heroTitle: {
+    ...Typography.h2,
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  heroSub: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+    lineHeight: 17,
+  },
+  heroCardWrap: {
+    alignItems: 'flex-start',
   },
   section: {
     marginBottom: Spacing.lg,
