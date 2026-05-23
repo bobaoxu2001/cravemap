@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,13 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { Restaurant, UserProfile } from '../../types';
 import { getAllRestaurants } from '../../src/services/restaurants';
 import { getCurrentProfile } from '../../src/services/profile';
+import {
+  applyTastePassport,
+  getDecisionHeadline,
+  getHungryNowPick,
+  getHungryNowReason,
+  getPrimaryOrder,
+} from '../../src/lib/recommendations';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
 
@@ -82,6 +89,16 @@ export default function Home() {
     setRefreshing(true);
     loadData('refresh');
   };
+
+  // Restaurants with `tasteMatchPercent` recomputed against this user's
+  // Taste Passport. Shelf sorting and the Hungry Now pick both flow
+  // through this so the same restaurant can rank differently per user.
+  const personalizedRestaurants = useMemo(
+    () => applyTastePassport(restaurants, profile),
+    [restaurants, profile]
+  );
+
+  const hungryNowPick = getHungryNowPick(personalizedRestaurants, selectedCity);
 
   // Show a brief toast when the user lands here after a successful check-in.
   // Connects the action → reward in plain language ("+200 pts toward Scout").
@@ -198,9 +215,38 @@ export default function Home() {
           <Text style={styles.checkInBtnText}>Post a check-in</Text>
         </TouchableOpacity>
 
+        {hungryNowPick && (
+          <TouchableOpacity
+            style={styles.hungryCard}
+            onPress={() => router.push(`/restaurant/${hungryNowPick.id}`)}
+            activeOpacity={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={`Hungry now pick: ${hungryNowPick.name}`}
+            accessibilityHint="Opens the best current restaurant pick for this city"
+          >
+            <View style={styles.hungryTopRow}>
+              <View>
+                <Text style={styles.hungryEyebrow}>Hungry now</Text>
+                <Text style={styles.hungryTitle}>{hungryNowPick.name}</Text>
+              </View>
+              <View style={styles.hungryBadge}>
+                <Text style={styles.hungryBadgeText}>{hungryNowPick.tasteMatchPercent}%</Text>
+              </View>
+            </View>
+            <Text style={styles.hungryReason}>{getDecisionHeadline(hungryNowPick)}</Text>
+            <Text style={styles.hungryMeta}>{getHungryNowReason(hungryNowPick)}</Text>
+            <View style={styles.hungryOrderRow}>
+              <Ionicons name="restaurant-outline" size={15} color={Colors.primary} />
+              <Text style={styles.hungryOrderText} numberOfLines={1}>
+                Start with {getPrimaryOrder(hungryNowPick)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Sections */}
         {sections.map((sec) => {
-          const sectionRestaurants = getRestaurantsForSection(sec.key, selectedCity, restaurants);
+          const sectionRestaurants = getRestaurantsForSection(sec.key, selectedCity, personalizedRestaurants);
           if (sectionRestaurants.length === 0) return null;
           return (
             <View key={sec.key} style={styles.section}>
@@ -374,6 +420,71 @@ const styles = StyleSheet.create({
     ...Typography.label,
     color: '#fff',
     fontWeight: '600',
+  },
+  hungryCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  hungryTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  hungryEyebrow: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  hungryTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+  },
+  hungryBadge: {
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.secondary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    minWidth: 46,
+    alignItems: 'center',
+  },
+  hungryBadgeText: {
+    ...Typography.label,
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  hungryReason: {
+    ...Typography.body,
+    color: Colors.text,
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+  hungryMeta: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+    marginBottom: Spacing.sm,
+  },
+  hungryOrderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  hungryOrderText: {
+    ...Typography.label,
+    color: Colors.text,
+    flex: 1,
   },
   section: {
     marginBottom: Spacing.lg,

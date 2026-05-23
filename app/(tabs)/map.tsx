@@ -9,16 +9,28 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant } from '../../types';
 import { getAllRestaurants } from '../../src/services/restaurants';
+import { useAuth } from '../../src/hooks/useAuth';
+import { applyTastePassport } from '../../src/lib/recommendations';
 import RestaurantMap from '../../components/RestaurantMap';
 
 const CITIES = ['All', 'New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
 const SORT_OPTIONS = ['Taste Match', 'Local Approved', 'Check-ins', 'Newest'];
+const PRICES = ['All', '$', '$$', '$$$'];
+
+// Cuisines in the data look like "Chinese - Sichuan", "Asian Fusion", "Indian".
+// Group by the first word so the filter chip row stays scannable (~10 chips
+// instead of ~30 hyper-specific sub-cuisines).
+function getCuisineFamily(cuisine: string): string {
+  const parts = cuisine.split(/[ -]/).filter(Boolean);
+  return parts[0] || cuisine;
+}
 
 const IS_WEB = Platform.OS === 'web';
 
@@ -101,21 +113,56 @@ export default function MapScreen() {
   const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCuisine, setSelectedCuisine] = useState('All');
+  const [openNowOnly, setOpenNowOnly] = useState(false);
+  const [selectedPrice, setSelectedPrice] = useState('All');
 
   useEffect(() => {
     getAllRestaurants().then(setAllRestaurants).finally(() => setLoading(false));
   }, []);
 
+  const { profile } = useAuth();
+  // Personalize `tasteMatchPercent` against this user's Taste Passport before
+  // filtering/sorting, so the list and map preview cards reflect their taste.
+  const personalizedRestaurants = useMemo(
+    () => applyTastePassport(allRestaurants, profile),
+    [allRestaurants, profile]
+  );
+
+  // Cuisine chips derived from all loaded restaurants. "All" first, then the
+  // unique cuisine families (e.g. "Chinese", "Japanese") sorted alphabetically.
+  const cuisineFamilies = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of allRestaurants) {
+      set.add(getCuisineFamily(r.cuisine));
+    }
+    return ['All', ...Array.from(set).sort()];
+  }, [allRestaurants]);
+
   const filtered = useMemo(() => {
-    return allRestaurants
+    const q = searchQuery.trim().toLowerCase();
+    return personalizedRestaurants
       .filter((r) => selectedCity === 'All' || r.city === selectedCity)
+      .filter((r) => selectedCuisine === 'All' || getCuisineFamily(r.cuisine) === selectedCuisine)
+      .filter((r) => !openNowOnly || r.isOpen)
+      .filter((r) => selectedPrice === 'All' || r.price === selectedPrice)
+      .filter((r) => {
+        if (!q) return true;
+        return (
+          r.name.toLowerCase().includes(q) ||
+          r.cuisine.toLowerCase().includes(q) ||
+          r.neighborhood.toLowerCase().includes(q) ||
+          r.tags.some((t) => t.toLowerCase().includes(q))
+        );
+      })
       .sort((a, b) => {
         if (sortBy === 'Taste Match') return b.tasteMatchPercent - a.tasteMatchPercent;
         if (sortBy === 'Local Approved') return b.localApprovedPercent - a.localApprovedPercent;
         if (sortBy === 'Check-ins') return b.verifiedCheckIns - a.verifiedCheckIns;
         return 0;
       });
-  }, [allRestaurants, selectedCity, sortBy]);
+  }, [personalizedRestaurants, selectedCity, selectedCuisine, openNowOnly, selectedPrice, searchQuery, sortBy]);
 
   // Drop selection if the selected restaurant is no longer in the filtered set.
   useEffect(() => {
@@ -175,6 +222,31 @@ export default function MapScreen() {
         </View>
       </View>
 
+      {/* Search */}
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={18} color={Colors.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search restaurants, cuisines, neighborhoods"
+          placeholderTextColor={Colors.textMuted}
+          autoCorrect={false}
+          returnKeyType="search"
+          accessibilityLabel="Search restaurants"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setSearchQuery('')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+          >
+            <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* City filter chips */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterContent}>
         {CITIES.map((c) => {
@@ -194,6 +266,56 @@ export default function MapScreen() {
         })}
       </ScrollView>
 
+      {/* Cuisine family chips */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterContent}>
+        {cuisineFamilies.map((c) => {
+          const isSelected = selectedCuisine === c;
+          return (
+            <TouchableOpacity
+              key={c}
+              style={[styles.filterChip, isSelected && styles.filterChipActive]}
+              onPress={() => setSelectedCuisine(c)}
+              accessibilityRole="button"
+              accessibilityLabel={`Cuisine: ${c}`}
+              accessibilityState={{ selected: isSelected }}
+            >
+              <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>{c}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Open Now + price quick filters */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterContent}>
+        <TouchableOpacity
+          style={[styles.filterChip, openNowOnly && styles.filterChipActive]}
+          onPress={() => setOpenNowOnly(!openNowOnly)}
+          accessibilityRole="switch"
+          accessibilityLabel="Open now"
+          accessibilityState={{ checked: openNowOnly }}
+        >
+          <Text style={[styles.filterChipText, openNowOnly && styles.filterChipTextActive]}>
+            {openNowOnly ? '✓ Open now' : 'Open now'}
+          </Text>
+        </TouchableOpacity>
+        {PRICES.map((p) => {
+          const isSelected = selectedPrice === p;
+          const label = p === 'All' ? 'Any price' : p;
+          return (
+            <TouchableOpacity
+              key={p}
+              style={[styles.filterChip, isSelected && styles.filterChipActive]}
+              onPress={() => setSelectedPrice(p)}
+              accessibilityRole="button"
+              accessibilityLabel={`Price: ${label}`}
+              accessibilityState={{ selected: isSelected }}
+            >
+              <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {/* Sort bar dropped — default sort by Taste Match is fine for browsing.
           If we need re-sort later, expose it as a single button, not 4 chips. */}
 
@@ -202,8 +324,8 @@ export default function MapScreen() {
           <Text style={styles.resultCount}>{filtered.length} restaurants</Text>
           {filtered.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No spots in this city yet.</Text>
-              <Text style={styles.emptySubtitle}>Pick a different city from the filter row above — we cover 5 cities in beta.</Text>
+              <Text style={styles.emptyTitle}>No restaurants match your filters.</Text>
+              <Text style={styles.emptySubtitle}>Try a different cuisine or city, or clear your search above.</Text>
             </View>
           ) : (
             filtered.map((r) => <RestaurantListItem key={r.id} restaurant={r} />)
@@ -278,6 +400,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
     paddingBottom: Spacing.sm,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    height: 40,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.text,
+    paddingVertical: 0,
   },
   filterChip: {
     backgroundColor: Colors.card,

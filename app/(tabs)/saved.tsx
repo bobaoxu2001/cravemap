@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   View,
@@ -17,12 +17,13 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { Restaurant } from '../../types';
 import { getSavedRestaurants, unsaveRestaurant } from '../../src/services/saved';
 import { useAuth } from '../../src/hooks/useAuth';
+import { applyTastePassport } from '../../src/lib/recommendations';
 
 const DEMO_USER_ID = 'u001';
 
 export default function Saved() {
   const router = useRouter();
-  const { session, isSupabaseMode } = useAuth();
+  const { session, isSupabaseMode, profile } = useAuth();
   const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
 
   const [savedRestaurants, setSavedRestaurants] = useState<Restaurant[]>([]);
@@ -64,6 +65,13 @@ export default function Saved() {
     await unsaveRestaurant(userId, id);
     setSavedRestaurants((prev) => prev.filter((r) => r.id !== id));
   };
+
+  // Saved cards show "X% match" — personalize against this user's Taste
+  // Passport so the number reflects them, not the baseline community score.
+  const personalizedSaved = useMemo(
+    () => applyTastePassport(savedRestaurants, profile),
+    [savedRestaurants, profile]
+  );
 
   if (loading) {
     return (
@@ -161,7 +169,7 @@ export default function Saved() {
             item. Dropped: TasteMatchBadge component, open/closed dot, wait
             time row, recommendation reason. The bookmark on the right
             removes from the list (clear inverse of saving). */}
-        {savedRestaurants.map((r) => (
+        {personalizedSaved.map((r) => (
           <TouchableOpacity
             key={r.id}
             style={styles.card}
