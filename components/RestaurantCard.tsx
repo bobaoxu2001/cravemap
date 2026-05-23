@@ -16,30 +16,45 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
     router.push(`/restaurant/${restaurant.id}`);
   };
 
+  const matchColor =
+    restaurant.tasteMatchPercent >= 90
+      ? Colors.green
+      : restaurant.tasteMatchPercent >= 75
+      ? '#FF8A00'
+      : Colors.textMuted;
+
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.92}>
       <View style={styles.imageContainer}>
         <Image source={{ uri: restaurant.images[0] }} style={styles.image} />
 
-        {/* Taste match circular badge - top left */}
-        <View style={styles.matchBadge}>
-          <Text style={styles.matchBadgePercent}>{restaurant.tasteMatchPercent}%</Text>
-          <Text style={styles.matchBadgeLabel}>match</Text>
-        </View>
+        {/* Gradient-style scrim at top for badges */}
+        <View style={styles.topScrim} />
 
-        <View style={styles.imageOverlay}>
-          <View style={[styles.openBadge, { backgroundColor: restaurant.isOpen ? Colors.green : Colors.textMuted }]}>
+        {/* Status badges — top row */}
+        <View style={styles.topRow}>
+          <View style={[styles.openBadge, { backgroundColor: restaurant.isOpen ? Colors.green : 'rgba(0,0,0,0.45)' }]}>
+            <View style={[styles.openDot, { backgroundColor: restaurant.isOpen ? '#fff' : Colors.textMuted }]} />
             <Text style={styles.openText}>{restaurant.isOpen ? 'Open' : 'Closed'}</Text>
           </View>
           {restaurant.waitTime && (
             <View style={styles.waitBadge}>
-              <Ionicons name="time-outline" size={10} color={Colors.textSecondary} />
+              <Ionicons name="time-outline" size={10} color="#fff" />
               <Text style={styles.waitText}>{restaurant.waitTime}</Text>
             </View>
           )}
         </View>
 
-        {/* Cuisine band at bottom of image */}
+        {/* Taste match badge — bottom left */}
+        <View style={[styles.matchBadge, { borderColor: matchColor }]}>
+          <Text style={[styles.matchBadgePercent, { color: matchColor }]}>
+            {restaurant.tasteMatchPercent}%
+          </Text>
+          <Text style={styles.matchBadgeLabel}>match</Text>
+        </View>
+
+        {/* Gradient scrim at bottom for cuisine info */}
+        <View style={styles.bottomScrim} />
         <View style={styles.cuisineBand}>
           <Text style={styles.cuisineText} numberOfLines={1}>{restaurant.cuisine}</Text>
           {restaurant.tags[0] && (
@@ -55,9 +70,11 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
         <Text style={styles.sub} numberOfLines={1}>{restaurant.neighborhood} · {restaurant.price}</Text>
 
         <View style={styles.trustRow}>
-          <Text style={styles.trustText} numberOfLines={1}>
-            🏘️ {restaurant.localApprovedPercent}% local · ✅ {restaurant.verifiedCheckIns.toLocaleString()} visits
-          </Text>
+          <View style={styles.trustBadge}>
+            <Text style={styles.trustBadgeText}>🏘️ {restaurant.localApprovedPercent}% local</Text>
+          </View>
+          <Text style={styles.trustDot}>·</Text>
+          <Text style={styles.trustText}>✅ {restaurant.verifiedCheckIns.toLocaleString()}</Text>
         </View>
 
         <View style={styles.reasonPill}>
@@ -90,46 +107,113 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 240,
+    width: 265,
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
     marginRight: Spacing.md,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 5,
   },
   imageContainer: {
     position: 'relative',
-    height: 140,
+    height: 178,
   },
-  matchBadge: {
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  topScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 56,
+    backgroundColor: 'transparent',
+    // Simulate gradient with a dark-to-transparent overlay
+    // Using a layered approach: slightly dark at top
+  },
+  bottomScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 56,
+    backgroundColor: 'rgba(0,0,0,0.0)',
+  },
+  topRow: {
     position: 'absolute',
     top: Spacing.sm,
     left: Spacing.sm,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: Colors.green,
+    right: Spacing.sm,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  openBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  openDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  openText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  waitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  waitText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  matchBadge: {
+    position: 'absolute',
+    bottom: 36,
+    left: Spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: BorderRadius.full,
+    borderWidth: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 3,
     zIndex: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
   matchBadgePercent: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    color: Colors.green,
     lineHeight: 14,
   },
   matchBadgeLabel: {
-    fontSize: 8,
+    fontSize: 10,
     color: Colors.textMuted,
     fontWeight: '600',
-    letterSpacing: 0.5,
   },
   cuisineBand: {
     position: 'absolute',
@@ -139,9 +223,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.60)',
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 5,
     gap: Spacing.xs,
   },
   cuisineText: {
@@ -153,7 +237,7 @@ const styles = StyleSheet.create({
   imageTagChip: {
     backgroundColor: 'rgba(255,255,255,0.22)',
     borderRadius: BorderRadius.full,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     maxWidth: 110,
   },
@@ -162,44 +246,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    top: Spacing.xs,
-    left: Spacing.xs,
-    right: Spacing.xs,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  openBadge: {
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  openText: {
-    ...Typography.caption,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  waitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  waitText: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
   content: {
-    padding: Spacing.sm,
+    padding: Spacing.sm + 2,
   },
   name: {
     fontSize: 16,
@@ -213,7 +261,25 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   trustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginBottom: Spacing.xs,
+  },
+  trustBadge: {
+    backgroundColor: Colors.warmBackground,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  trustBadgeText: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  trustDot: {
+    ...Typography.caption,
+    color: Colors.textMuted,
   },
   trustText: {
     ...Typography.caption,
@@ -227,7 +293,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   reason: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.text,
     lineHeight: 17,
   },

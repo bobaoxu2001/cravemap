@@ -9,24 +9,31 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../src/hooks/useAuth';
 
 const features = [
   {
     icon: '🏘️',
+    iconBg: '#E8F5EE',
     title: 'Local Picks',
     desc: 'Curated by people who actually live there, not tourists.',
+    accentColor: Colors.green,
   },
   {
     icon: '👤',
+    iconBg: Colors.secondary,
     title: 'Taste Match',
     desc: 'Find restaurants loved by people with your exact taste.',
+    accentColor: Colors.primary,
   },
   {
     icon: '✅',
+    iconBg: '#F0F4FF',
     title: 'Real Check-ins',
     desc: 'Location-verified reviews — no bots, no paid influencers.',
+    accentColor: '#7B9EFF',
   },
 ];
 
@@ -101,7 +108,10 @@ export default function Welcome() {
 
         {/* Header */}
         <View style={styles.heroSection}>
-          <Text style={styles.kicker}>FOOD DISCOVERY · 5 CITIES · INVITE-ONLY</Text>
+          <View style={styles.kickerRow}>
+            <View style={styles.kickerDot} />
+            <Text style={styles.kicker}>FOOD DISCOVERY · 5 CITIES · INVITE-ONLY</Text>
+          </View>
           <View style={styles.brandRow}>
             <Text style={styles.chineseName}>好吃GO</Text>
             <View style={styles.betaPill}>
@@ -114,15 +124,19 @@ export default function Welcome() {
             <Text style={styles.headlineSub}>
               Find restaurants real locals actually go to — picked by people with your exact taste.
             </Text>
-            <Text style={styles.sloganChinese}>本地人带路，同口味避雷</Text>
+            <View style={styles.sloganChineseWrap}>
+              <Text style={styles.sloganChinese}>本地人带路，同口味避雷</Text>
+            </View>
           </View>
         </View>
 
         {/* Features */}
         <View style={styles.featuresContainer}>
           {features.map((f, i) => (
-            <View key={i} style={styles.featureCard}>
-              <Text style={styles.featureIcon}>{f.icon}</Text>
+            <View key={i} style={[styles.featureCard, { borderLeftColor: f.accentColor }]}>
+              <View style={[styles.featureIconWrap, { backgroundColor: f.iconBg }]}>
+                <Text style={styles.featureIcon}>{f.icon}</Text>
+              </View>
               <View style={styles.featureText}>
                 <Text style={styles.featureTitle}>{f.title}</Text>
                 <Text style={styles.featureDesc}>{f.desc}</Text>
@@ -135,6 +149,7 @@ export default function Welcome() {
         <View style={styles.diffRow}>
           {['NOT YELP', 'NOT DIANPING', 'NOT TIKTOK HYPE'].map((c) => (
             <View key={c} style={styles.diffChip}>
+              <Ionicons name="close" size={10} color={Colors.textSecondary} />
               <Text style={styles.diffChipText}>{c}</Text>
             </View>
           ))}
@@ -210,6 +225,7 @@ export default function Welcome() {
                       ? 'Sign In'
                       : 'Create Account'}
                 </Text>
+                {!submitting && <Ionicons name="arrow-forward" size={18} color="#fff" />}
               </TouchableOpacity>
             </View>
           ) : (
@@ -218,13 +234,22 @@ export default function Welcome() {
               onPress={() => router.push('/onboarding/taste-passport')}
               activeOpacity={0.85}
             >
-              <Text style={styles.primaryButtonText}>Build My Taste Passport →</Text>
+              <Text style={styles.primaryButtonText}>Build My Taste Passport</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>
           )}
 
-          <Text style={styles.socialProof}>
-            847 Founding Food Scouts already in. 153 spots left.
-          </Text>
+          {/* Social proof */}
+          <View style={styles.socialProofRow}>
+            <View style={styles.socialProofDots}>
+              {['🔴', '🟠', '🟡'].map((dot, i) => (
+                <Text key={i} style={styles.socialProofDot}>{dot}</Text>
+              ))}
+            </View>
+            <Text style={styles.socialProof}>
+              847 Founding Food Scouts already in. <Text style={{ color: Colors.primary, fontWeight: '700' }}>153 spots left.</Text>
+            </Text>
+          </View>
 
           <TouchableOpacity
             style={styles.secondaryButton}
@@ -240,7 +265,7 @@ export default function Welcome() {
             activeOpacity={0.7}
           >
             <Text style={styles.secondaryButtonText}>
-              {isSupabaseMode ? 'Create account to build your Taste Passport' : 'Browse demo without signing in'}
+              {isSupabaseMode ? 'Create account to build your Taste Passport' : 'Browse demo without signing in →'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -282,17 +307,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xl,
   },
-  emojiDecor: {
-    fontSize: 28,
+  kickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: Spacing.md,
-    letterSpacing: 8,
+  },
+  kickerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
   },
   kicker: {
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 2,
     color: Colors.textSecondary,
-    marginBottom: Spacing.md,
     textAlign: 'center',
   },
   brandRow: {
@@ -313,10 +344,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   headline: {
-    ...Typography.h1,
+    fontSize: 30,
+    fontWeight: '800',
     color: Colors.primary,
     textAlign: 'center',
     marginBottom: Spacing.xs,
+    letterSpacing: -0.5,
   },
   headlineSub: {
     ...Typography.body,
@@ -333,23 +366,37 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   diffChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     backgroundColor: Colors.border,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   diffChipText: {
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     color: Colors.textSecondary,
+  },
+  socialProofRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  socialProofDots: {
+    flexDirection: 'row',
+  },
+  socialProofDot: {
+    fontSize: 8,
+    marginRight: -2,
   },
   socialProof: {
     ...Typography.caption,
     color: Colors.textMuted,
     textAlign: 'center',
-    marginTop: Spacing.xs,
-    paddingHorizontal: Spacing.md,
   },
   chineseName: {
     fontSize: 52,
@@ -358,25 +405,27 @@ const styles = StyleSheet.create({
     lineHeight: 60,
   },
   appName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '500',
     color: Colors.textSecondary,
-    letterSpacing: 3,
+    letterSpacing: 4,
     marginBottom: Spacing.md,
   },
   sloganContainer: {
     alignItems: 'center',
   },
-  slogan: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
+  sloganChineseWrap: {
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   sloganChinese: {
     ...Typography.label,
     color: Colors.textMuted,
-    marginTop: Spacing.xs,
     fontStyle: 'italic',
   },
   featuresContainer: {
@@ -390,14 +439,22 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     gap: Spacing.md,
+    borderLeftWidth: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
   },
+  featureIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   featureIcon: {
-    fontSize: 28,
+    fontSize: 22,
   },
   featureText: {
     flex: 1,
@@ -413,15 +470,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 18,
   },
-  emojiRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  foodEmoji: {
-    fontSize: 28,
-  },
   ctaContainer: {
     gap: Spacing.md,
   },
@@ -429,12 +477,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.xl,
     paddingVertical: Spacing.md + 2,
+    paddingHorizontal: Spacing.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
   },
   primaryButtonDisabled: {
     opacity: 0.65,
@@ -450,6 +502,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   authToggle: {
     flexDirection: 'row',
@@ -461,11 +518,16 @@ const styles = StyleSheet.create({
   authToggleBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.xs + 1,
     borderRadius: BorderRadius.full,
   },
   authToggleBtnActive: {
     backgroundColor: Colors.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   authToggleText: {
     ...Typography.caption,
@@ -478,7 +540,7 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: Colors.background,
     borderRadius: BorderRadius.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,

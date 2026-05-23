@@ -175,7 +175,18 @@ export default function Profile() {
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+          {/* Colored hero banner */}
+          <View style={styles.profileBanner}>
+            <View style={styles.profileBannerPattern}>
+              {['🍜', '🌶️', '🍣', '🥗', '🍕'].map((e, i) => (
+                <Text key={i} style={[styles.bannerEmoji, { opacity: 0.18 + i * 0.04, transform: [{ rotate: `${-10 + i * 8}deg` }] }]}>{e}</Text>
+              ))}
+            </View>
+          </View>
+          {/* Avatar overlapping the banner */}
+          <View style={styles.avatarWrapper}>
+            <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+          </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile.name}</Text>
             <View style={styles.cityRow}>
@@ -392,28 +403,50 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     marginHorizontal: Spacing.md,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
     marginBottom: Spacing.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  profileBanner: {
+    width: '100%',
+    height: 90,
+    backgroundColor: Colors.primary,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  profileBannerPattern: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: Spacing.md,
+  },
+  bannerEmoji: {
+    fontSize: 36,
+    color: '#fff',
+  },
+  avatarWrapper: {
+    marginTop: -44,
+    marginBottom: Spacing.sm,
+    borderWidth: 4,
+    borderColor: Colors.card,
+    borderRadius: 46,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    marginBottom: Spacing.sm,
-    borderWidth: 3,
-    borderColor: Colors.secondary,
   },
   profileInfo: {
     alignItems: 'center',
     marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
   },
   profileName: {
     ...Typography.h3,
@@ -434,6 +467,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
