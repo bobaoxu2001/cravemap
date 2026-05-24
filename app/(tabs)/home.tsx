@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,13 @@ import { Restaurant, UserProfile, CheckIn } from '../../types';
 import { getAllRestaurants } from '../../src/services/restaurants';
 import { getAllCheckIns } from '../../src/services/checkIns';
 import { getCurrentProfile } from '../../src/services/profile';
+import {
+  applyTastePassport,
+  getDecisionHeadline,
+  getHungryNowPick,
+  getHungryNowReason,
+  getPrimaryOrder,
+} from '../../src/lib/recommendations';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
 import RestaurantCard from '../../components/RestaurantCard';
@@ -106,10 +113,15 @@ export default function Home() {
 
   const firstName = profile?.name.split(' ')[0] ?? 'there';
 
+  // Personalize `tasteMatchPercent` against this user's Taste Passport so
+  // shelves, search, and the Hungry Now pick all reflect per-user taste.
+  const personalizedRestaurants = applyTastePassport(restaurants, profile);
+  const hungryNowPick = getHungryNowPick(personalizedRestaurants, selectedCity);
+
   // Search results
   const trimmedQuery = searchQuery.trim();
   const searchResults = trimmedQuery
-    ? restaurants.filter((r) => {
+    ? personalizedRestaurants.filter((r) => {
         const haystack = (r.name + ' ' + r.cuisine + ' ' + r.neighborhood + ' ' + r.tags.join(' ')).toLowerCase();
         return haystack.includes(trimmedQuery.toLowerCase());
       })
@@ -121,7 +133,7 @@ export default function Home() {
     ? sections.filter((sec) => sec.key === activeFilter || sec.key === 'taste-match')
     : sections;
 
-  const cityList = restaurants.filter((r) => r.city === selectedCity);
+  const cityList = personalizedRestaurants.filter((r) => r.city === selectedCity);
   const filteredCityList = isFiltered
     ? cityList.filter((r) => r.categories.includes(activeFilter))
     : cityList;
@@ -285,6 +297,33 @@ export default function Home() {
                 <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
               </View>
             </TouchableOpacity>
+
+            {/* Hungry Now — single best pick for this city right now */}
+            {hungryNowPick && (
+              <TouchableOpacity
+                style={styles.hungryCard}
+                onPress={() => router.push('/restaurant/' + hungryNowPick.id)}
+                activeOpacity={0.9}
+              >
+                <View style={styles.hungryTopRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.hungryEyebrow}>Hungry now</Text>
+                    <Text style={styles.hungryTitle}>{hungryNowPick.name}</Text>
+                  </View>
+                  <View style={styles.hungryBadge}>
+                    <Text style={styles.hungryBadgeText}>{hungryNowPick.tasteMatchPercent}%</Text>
+                  </View>
+                </View>
+                <Text style={styles.hungryReason}>{getDecisionHeadline(hungryNowPick)}</Text>
+                <Text style={styles.hungryMeta}>{getHungryNowReason(hungryNowPick)}</Text>
+                <View style={styles.hungryOrderRow}>
+                  <Ionicons name="restaurant-outline" size={15} color={Colors.primary} />
+                  <Text style={styles.hungryOrderText} numberOfLines={1}>
+                    Start with {getPrimaryOrder(hungryNowPick)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Hero featured pick */}
             {featured && (
@@ -595,6 +634,66 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: Colors.green,
+  },
+  hungryCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  hungryTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  hungryEyebrow: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  hungryTitle: {
+    ...Typography.h2,
+    color: Colors.text,
+  },
+  hungryBadge: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  hungryBadgeText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  hungryReason: {
+    ...Typography.body,
+    color: Colors.text,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  hungryMeta: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  hungryOrderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  hungryOrderText: {
+    ...Typography.body,
+    color: Colors.text,
+    flex: 1,
   },
   checkInBanner: {
     marginHorizontal: Spacing.md,

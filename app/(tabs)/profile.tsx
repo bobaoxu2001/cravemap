@@ -18,6 +18,7 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { UserProfile } from '../../types';
 import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
 import { createInvite, redeemInvite } from '../../src/services/invites';
+import { getInviteShareUrl } from '../../src/lib/links';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 import Mascot from '../../components/Mascot';
@@ -108,11 +109,14 @@ export default function Profile() {
     setInviting(true);
     try {
       const invite = await createInvite();
+      // Share a web landing URL, not a raw cravemap:// link, so recipients
+      // without the app land on a real page (deep link + store links + code).
+      const inviteUrl = getInviteShareUrl(invite.code);
       try {
         await Share.share({
-          message: `Join me on CraveMap — the local food discovery app!\n\nUse my invite link: cravemap://redeem?code=${invite.code}\n\nOr enter code manually: ${invite.code}`,
+          message: `Join me on CraveMap — find restaurants real locals go to.\n\nUse my invite link: ${inviteUrl}\n\nOr enter code manually: ${invite.code}`,
           title: 'Join CraveMap',
-          url: `cravemap://redeem?code=${invite.code}`,
+          url: inviteUrl,
         });
       } catch {
         Alert.alert('Your invite code', invite.code, [{ text: 'OK' }]);

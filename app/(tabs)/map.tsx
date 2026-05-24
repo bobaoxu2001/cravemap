@@ -16,12 +16,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant } from '../../types';
 import { getAllRestaurants } from '../../src/services/restaurants';
+import { useAuth } from '../../src/hooks/useAuth';
+import { applyTastePassport } from '../../src/lib/recommendations';
 import TasteMatchBadge from '../../components/TasteMatchBadge';
 import TagChip from '../../components/TagChip';
 import RestaurantMap from '../../components/RestaurantMap';
 
 const CITIES = ['All', 'New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
 const SORT_OPTIONS = ['Taste Match', 'Local Approved', 'Check-ins', 'Newest'];
+const PRICES = ['All', '$', '$$', '$$$'];
+
+// Cuisines in the data look like "Chinese - Sichuan", "Asian Fusion", etc.
+// Group by the first word so the filter chip row stays scannable.
+function getCuisineFamily(cuisine: string): string {
+  const parts = cuisine.split(/[ -]/).filter(Boolean);
+  return parts[0] || cuisine;
+}
 
 const IS_WEB = Platform.OS === 'web';
 
@@ -115,21 +125,43 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapSearch, setMapSearch] = useState('');
+  const [selectedCuisine, setSelectedCuisine] = useState('All');
+  const [openNowOnly, setOpenNowOnly] = useState(false);
+  const [selectedPrice, setSelectedPrice] = useState('All');
 
   useEffect(() => {
     getAllRestaurants().then(setAllRestaurants).finally(() => setLoading(false));
   }, []);
 
+  const { profile } = useAuth();
+
+  // Personalize tasteMatchPercent before filtering/sorting so this user's
+  // taste actually shapes the order.
+  const personalizedRestaurants = useMemo(
+    () => applyTastePassport(allRestaurants, profile),
+    [allRestaurants, profile]
+  );
+
+  // Cuisine chips derived from loaded data — "All" + unique families A-Z.
+  const cuisineFamilies = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of allRestaurants) set.add(getCuisineFamily(r.cuisine));
+    return ['All', ...Array.from(set).sort()];
+  }, [allRestaurants]);
+
   const filtered = useMemo(() => {
-    return allRestaurants
+    return personalizedRestaurants
       .filter((r) => selectedCity === 'All' || r.city === selectedCity)
+      .filter((r) => selectedCuisine === 'All' || getCuisineFamily(r.cuisine) === selectedCuisine)
+      .filter((r) => !openNowOnly || r.isOpen)
+      .filter((r) => selectedPrice === 'All' || r.price === selectedPrice)
       .sort((a, b) => {
         if (sortBy === 'Taste Match') return b.tasteMatchPercent - a.tasteMatchPercent;
         if (sortBy === 'Local Approved') return b.localApprovedPercent - a.localApprovedPercent;
         if (sortBy === 'Check-ins') return b.verifiedCheckIns - a.verifiedCheckIns;
         return 0;
       });
-  }, [allRestaurants, selectedCity, sortBy]);
+  }, [personalizedRestaurants, selectedCity, selectedCuisine, openNowOnly, selectedPrice, sortBy]);
 
   const visibleRestaurants = mapSearch.trim()
     ? filtered.filter((r) =>
@@ -220,6 +252,38 @@ export default function MapScreen() {
         )}
       </View>
       {mapSearch.trim() && <Text style={styles.mapSearchCount}>{visibleRestaurants.length} result{visibleRestaurants.length === 1 ? '' : 's'} for "{mapSearch}"</Text>}
+
+      {/* Cuisine family chips */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortBar} contentContainerStyle={styles.filterContent}>
+        {cuisineFamilies.map((c) => (
+          <TouchableOpacity
+            key={c}
+            style={[styles.sortChip, selectedCuisine === c && styles.sortChipActive]}
+            onPress={() => setSelectedCuisine(c)}
+          >
+            <Text style={[styles.sortChipText, selectedCuisine === c && styles.sortChipTextActive]}>{c}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Price + open-now */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortBar} contentContainerStyle={styles.filterContent}>
+        <TouchableOpacity
+          style={[styles.sortChip, openNowOnly && styles.sortChipActive]}
+          onPress={() => setOpenNowOnly((v) => !v)}
+        >
+          <Text style={[styles.sortChipText, openNowOnly && styles.sortChipTextActive]}>Open now</Text>
+        </TouchableOpacity>
+        {PRICES.map((p) => (
+          <TouchableOpacity
+            key={p}
+            style={[styles.sortChip, selectedPrice === p && styles.sortChipActive]}
+            onPress={() => setSelectedPrice(p)}
+          >
+            <Text style={[styles.sortChipText, selectedPrice === p && styles.sortChipTextActive]}>{p}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       {/* Sort options */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortBar} contentContainerStyle={styles.filterContent}>
