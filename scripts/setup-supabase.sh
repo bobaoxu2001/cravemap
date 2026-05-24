@@ -64,20 +64,24 @@ RESPONSE=$(curl -s -X POST \
   2>&1)
 
 # Supabase doesn't have exec_sql, use pg REST approach via supabase CLI
-# Fall back to instructions
+# Fall back to instructions. Order matters: 002 references tables created in 001.
 echo ""
 echo "  ⚠  Automatic migration requires Supabase CLI linked to your project."
-echo "  Manual step (30 seconds):"
+echo "  Manual step (1 minute):"
 echo ""
 echo "  1. Go to: ${SUPABASE_URL%.*}.supabase.com → SQL Editor"
-echo "  2. Paste the contents of: supabase/migrations/002_ugc_compliance.sql"
-echo "  3. Click Run"
+echo "  2. Run, in order:"
+echo "       a. supabase/migrations/001_base_schema.sql    (profiles, check_ins, …)"
+echo "       b. supabase/migrations/002_ugc_compliance.sql (reports, blocks, RLS)"
+echo "       c. supabase/storage.sql                       (storage buckets)"
+echo "       d. supabase/seed/seed_restaurants.mjs         (run via node)"
+echo "  3. Skip 001 if the project already has the base schema applied."
 echo ""
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 echo "============================================"
 echo "  Done! Next steps:"
-echo "  1. Apply migration 002 manually in SQL Editor (see above)"
+echo "  1. Apply migrations 001 → 002 manually in SQL Editor (see above)"
 echo "  2. Run: npx expo start"
 echo "     → App should say 'Supabase mode' in dev console"
 echo "  3. When ready to build: eas build --profile production --platform ios"

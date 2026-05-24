@@ -58,6 +58,14 @@ create index if not exists idx_reports_check_in on public.reports(check_in_id);
 create index if not exists idx_reports_reporter on public.reports(reporter_id);
 create index if not exists idx_reports_status on public.reports(status) where status = 'pending';
 
+-- One report per (reporter, check_in, reason). report_check_in() uses
+-- ON CONFLICT DO NOTHING to absorb double-taps and retries; without this
+-- constraint that clause is a no-op and duplicates inflate moderation load.
+-- Partial because check_in_id is nullable (future: report users directly).
+create unique index if not exists uq_reports_reporter_checkin_reason
+  on public.reports(reporter_id, check_in_id, reason)
+  where check_in_id is not null;
+
 -- ---------------------------------------------------------------------------
 -- RLS
 -- ---------------------------------------------------------------------------
@@ -154,7 +162,7 @@ begin
 
   insert into public.reports (reporter_id, check_in_id, reason, details)
     values (v_user_id, p_check_in_id, p_reason, nullif(trim(coalesce(p_details, '')), ''))
-    on conflict do nothing;
+    on conflict (reporter_id, check_in_id, reason) do nothing;
 
   return jsonb_build_object('success', true);
 end;
