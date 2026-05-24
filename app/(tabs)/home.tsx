@@ -16,7 +16,7 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { Restaurant, UserProfile, CheckIn } from '../../types';
 import { getAllRestaurants } from '../../src/services/restaurants';
 import { getAllCheckIns } from '../../src/services/checkIns';
-import { getCurrentProfile } from '../../src/services/profile';
+import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
 import {
   applyTastePassport,
   getDecisionHeadline,
@@ -30,6 +30,13 @@ import RestaurantCard from '../../components/RestaurantCard';
 import VoiceMic from '../../components/VoiceMic';
 
 const CITIES = ['New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
+
+const PERSONA_EMOJI: Record<string, string> = {
+  'Spicy Adventurer': '🌶️',
+  'Healthy Foodie': '🥗',
+  'Comfort Seeker': '🍜',
+  'Authentic Explorer': '🍱',
+};
 
 const QUICK_FILTERS = [
   { key: 'all', label: 'All', emoji: '✨' },
@@ -112,6 +119,8 @@ export default function Home() {
   }
 
   const firstName = profile?.name.split(' ')[0] ?? 'there';
+  const persona = profile ? getTastePersona(profile) : 'Authentic Explorer';
+  const personaEmoji = PERSONA_EMOJI[persona] ?? '🍱';
 
   // Personalize `tasteMatchPercent` against this user's Taste Passport so
   // shelves, search, and the Hungry Now pick all reflect per-user taste.
@@ -144,7 +153,7 @@ export default function Home() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.logoSm}>好吃GO</Text>
+          <Text style={styles.logoSm}>好吃GO · CRAVEMAP</Text>
           <View style={styles.greetingRow}>
             <Text style={styles.greetingEmoji}>{getGreetingEmoji()}</Text>
             <Text style={styles.greeting}>{getGreeting()}, {firstName}</Text>
@@ -190,7 +199,7 @@ export default function Home() {
           activeOpacity={0.7}
         >
           <Text style={styles.personaChipText}>
-            🌶️ Spicy Adventurer · {profile?.tastePreferences.length ?? 0} cuisines saved
+            {personaEmoji} {persona} · {profile?.tastePreferences.length ?? 0} cuisines saved
           </Text>
           <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
         </TouchableOpacity>
@@ -326,24 +335,33 @@ export default function Home() {
             )}
 
             {/* Hero featured pick */}
-            {featured && (
-              <View style={styles.heroSection}>
-                <View style={styles.heroLabelRow}>
-                  <View style={styles.heroAccentDot} />
-                  <Text style={styles.heroLabel}>TODAY'S PICK FOR YOU</Text>
+            {featured && (() => {
+              const featuredTopCheckIn = recentCheckIns
+                .filter((ci) => ci.restaurantId === featured.id && ci.review && ci.review.length > 0)
+                .sort((a, b) => (b.helpful ?? 0) - (a.helpful ?? 0))[0];
+              return (
+                <View style={styles.heroSection}>
+                  <View style={styles.heroLabelRow}>
+                    <View style={styles.heroAccentDot} />
+                    <Text style={styles.heroLabel}>TODAY'S PICK FOR YOU</Text>
+                  </View>
+                  <Text style={styles.heroTitle}>🎯 {featured.name}</Text>
+                  <Text style={styles.heroSub}>
+                    {featured.tasteMatchPercent}% match · Top pick in {selectedCity.split(' ')[0]} for {featured.cuisine.split(' - ')[0].toLowerCase()}
+                  </Text>
+                  <View style={styles.heroCardWrap}>
+                    <RestaurantCard
+                      restaurant={featured}
+                      topCheckIn={featuredTopCheckIn ? {
+                        userName: featuredTopCheckIn.userName,
+                        hypeRating: featuredTopCheckIn.hypeRating,
+                        review: featuredTopCheckIn.review,
+                      } : undefined}
+                    />
+                  </View>
                 </View>
-                <Text style={styles.heroTitle}>🎯 {featured.name}</Text>
-                <Text style={styles.heroSub}>
-                  {featured.tasteMatchPercent}% of Spicy Adventurers in {selectedCity.split(' ')[0]} who tried {featured.cuisine.split(' - ')[0].toLowerCase()} this month said this was worth it.
-                </Text>
-                <View style={styles.heroCardWrap}>
-                  <RestaurantCard
-                    restaurant={featured}
-                    topCheckIn={{ userName: 'Sarah K.', hypeRating: 'worth_it', review: 'Skip the menu, order the #6. Cash only but absolutely worth it.' }}
-                  />
-                </View>
-              </View>
-            )}
+              );
+            })()}
 
             {/* Scout Activity */}
             {searchQuery === '' && activeFilter === 'all' && recentCheckIns.length > 0 && (
