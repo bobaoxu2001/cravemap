@@ -185,9 +185,9 @@ Answer these in App Store Connect → App Information → Age Rating:
 | **Last name** | ⚠️ Your name |
 | **Phone** | ⚠️ Your phone (US number recommended) |
 | **Email** | ax2183@nyu.edu |
-| **Demo account username** | ⚠️ Create a Supabase test account: `reviewer@cravemap-test.com` |
-| **Demo account password** | ⚠️ Set a password, write it here |
-| **Notes** | The app supports both Mock mode (no login needed) and Supabase mode. The demo account logs into Supabase mode. To test Mock mode: delete the app and reinstall without signing in — it auto-logs in as a demo user. Map requires location permission; tap "Allow While Using App" to see the map. |
+| **Demo account username** | `reviewer@cravemap-test.com` (provision via `supabase/release/01-reviewer-account.sql`) |
+| **Demo account password** | `ReviewPass2026!` |
+| **Notes** | The app supports both Mock mode (no login needed) and Supabase mode. The demo account logs into Supabase mode with a completed Taste Passport and ~28 seeded check-ins authored by 4 launch-scout personas. To test Mock mode: delete the app and reinstall without signing in — it auto-logs in as a demo user. Map requires location permission; tap "Allow While Using App" to see the map. |
 
 ---
 
@@ -195,8 +195,8 @@ Answer these in App Store Connect → App Information → Age Rating:
 
 | Field | URL | Notes |
 |---|---|---|
-| **Support URL** | ⚠️ `https://cravemap.app/support` OR `mailto:ax2183@nyu.edu` | Apple accepts mailto links |
-| **Privacy Policy URL** | ⚠️ Host the privacy policy at a public URL | See `PRIVACY_POLICY.md` for the content |
+| **Support URL** | `mailto:ax2183@nyu.edu` | Apple accepts mailto links. Swap for a domain when `cravemap.app` ships. |
+| **Privacy Policy URL** | `https://bobaoxu2001.github.io/cravemap/index.html` | Served from `privacy-site/index.html` via the `gh-pages` branch — verify the page is live before submission. |
 | **Marketing URL** | Optional | Your website or landing page |
 
 ### Easy hosting options for Privacy Policy:
@@ -236,16 +236,30 @@ eas submit --platform ios --latest
 
 ## Pre-Submission Checklist
 
-- [ ] `app.json` version is `1.0.0`, buildNumber is `1`
-- [ ] Privacy Policy is hosted at a public HTTPS URL
+- [ ] `app.json` version is `1.0.0`, buildNumber is `1` (EAS auto-increments thereafter)
+- [x] Privacy Policy URL set → `https://bobaoxu2001.github.io/cravemap/index.html`
 - [ ] App Store Connect app record created with Bundle ID `com.cravemap.app`
-- [ ] Screenshots uploaded (6.7" iPhone + iPad Pro 13")
+- [ ] Screenshots uploaded (6.7" iPhone — 5 recommended, see sequence above)
 - [ ] Privacy Nutrition Labels filled
 - [ ] Age rating questionnaire completed (→ 12+)
-- [ ] App Review demo account created and credentials entered
-- [ ] Support URL filled (at minimum `mailto:ax2183@nyu.edu`)
-- [ ] Production EAS secrets set
+- [x] App Review demo account provisioned via `supabase/release/01-reviewer-account.sql`
+- [x] Launch check-in seed applied via `supabase/release/02-launch-checkins.sql`
+- [x] Support URL set → `mailto:ax2183@nyu.edu`
+- [ ] **App Review contact: first name / last name / phone** filled in App Store Connect (still ⚠️ — must be a human)
+- [ ] Production EAS secrets set (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, optional `EXPO_PUBLIC_OPENAI_API_KEY`)
 - [ ] Production build submitted to TestFlight
 - [ ] Build added to App Store version in App Store Connect
 - [ ] All metadata fields complete (name, subtitle, description, keywords, promotional text)
 - [ ] Content Rights declaration complete
+
+### Production Supabase setup (one-time, in order)
+
+```sql
+-- In Supabase SQL Editor (service_role):
+-- 1. supabase/migrations/001_base_schema.sql
+-- 2. supabase/migrations/002_ugc_compliance.sql
+-- 3. supabase/storage.sql
+-- 4. supabase/seed.sql                          ← restaurant CMS (32 spots)
+-- 5. supabase/release/01-reviewer-account.sql   ← Apple reviewer demo user
+-- 6. supabase/release/02-launch-checkins.sql    ← ~28 launch check-ins
+```
