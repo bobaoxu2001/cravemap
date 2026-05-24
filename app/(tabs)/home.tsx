@@ -40,26 +40,19 @@ const PERSONA_EMOJI: Record<string, string> = {
 
 const QUICK_FILTERS = [
   { key: 'all', label: 'All', emoji: '✨' },
-  { key: 'actually-spicy', label: 'Spicy', emoji: '🌶️' },
   { key: 'local-approved', label: 'Local', emoji: '🏘️' },
   { key: 'hidden-gems', label: 'Hidden Gems', emoji: '💎' },
-  { key: 'late-night', label: 'Late Night', emoji: '🌙' },
-  { key: 'student-favorites', label: 'Budget', emoji: '🎓' },
-  { key: 'culture-approved', label: 'Authentic', emoji: '🍜' },
 ];
 
+// Four shelves only. More than this hurt decision-making more than it helped
+// browsability — the previous eleven-shelf layout made the home page a
+// menu instead of a destination. Anything narrower than these four is what
+// the quick-filter chips above are for.
 const sections = [
   { key: 'trending-week', emoji: '🔥', title: 'Trending this week', subtitle: (city: string) => `What people in ${city} are talking about right now` },
   { key: 'local-approved', emoji: '🏘️', title: 'Local-approved', subtitle: () => 'What your neighbors actually eat — not what tourists post' },
   { key: 'taste-match', emoji: '👤', title: 'People with your taste', subtitle: () => 'Ranked by how well each spot matches your Taste Passport' },
-  { key: 'actually-spicy', emoji: '🌶️', title: 'Actually spicy', subtitle: () => 'Cleared by scouts with verified spice tolerance' },
-  { key: 'hidden-by-algo', emoji: '🫥', title: 'Hidden by the algorithm', subtitle: () => "Locals know. Algorithms don't. Yet." },
-  { key: 'anti-hype', emoji: '🤫', title: 'Worth-it picks', subtitle: () => 'Quietly excellent. No viral video required.' },
-  { key: 'culture-approved', emoji: '🍜', title: 'Culture-approved', subtitle: () => 'Validated by people from where the food is from' },
-  { key: 'diet-approved', emoji: '🥗', title: 'Diet-approved', subtitle: () => 'Matches your dietary preferences' },
-  { key: 'late-night', emoji: '🌙', title: 'Late-night eats', subtitle: () => 'Open past 10. The night-shift crew approves.' },
-  { key: 'student-favorites', emoji: '📚', title: 'Student favorites', subtitle: () => '$10 fills you up. The graduate student diet.' },
-  { key: 'hidden-gems', emoji: '💎', title: 'Hidden gems', subtitle: () => '<500 check-ins, but the right 500' },
+  { key: 'hidden-gems', emoji: '💎', title: 'Hidden gems', subtitle: () => 'Fewer than 500 check-ins, but the right ones' },
 ];
 
 function getGreeting() {
