@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,14 @@ import {
   unsaveRestaurant,
 } from '../../src/services/saved';
 import { useAuth } from '../../src/hooks/useAuth';
+import { getBlockedUserIds } from '../../src/services/blocks';
+import {
+  computeTasteMatch,
+  getDecisionHeadline,
+  getPrimaryOrder,
+  getRecommendationProof,
+} from '../../src/lib/recommendations';
+import { getRestaurantShareUrl } from '../../src/lib/links';
 import TagChip from '../../components/TagChip';
 import CheckInCard from '../../components/CheckInCard';
 
@@ -32,7 +40,7 @@ const DEMO_USER_ID = 'u001';
 export default function RestaurantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { session, isSupabaseMode } = useAuth();
+  const { session, isSupabaseMode, profile } = useAuth();
   const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
 
   const [saved, setSaved] = useState(false);
@@ -44,8 +52,18 @@ export default function RestaurantDetail() {
   // Track per-check-in marked-helpful + in-flight state for this session.
   const [helpfulMarked, setHelpfulMarked] = useState<Record<string, boolean>>({});
   const [helpfulLoading, setHelpfulLoading] = useState<Record<string, boolean>>({});
+  // IDs of users the current user has blocked — hidden from the check-in feed.
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+
+  // Personalized taste-match — falls back to baseline when passport incomplete.
+  const personalizedMatch = useMemo(
+    () => (restaurant ? computeTasteMatch(restaurant, profile) : 0),
+    [restaurant, profile]
+  );
 
   const loadData = useCallback(() => {
+    // Load blocked IDs in parallel so we can filter them from the feed.
+    void getBlockedUserIds().then((ids) => setBlockedUserIds(new Set(ids)));
     Promise.all([getRestaurantById(id), getCheckInsByRestaurantId(id)])
       .then(([r, c]) => {
         setRestaurant(r ?? null);
@@ -172,9 +190,14 @@ export default function RestaurantDetail() {
   }, [helpfulLoading, helpfulMarked, isSupabaseMode, router, userId]);
 
   const handleShare = useCallback(() => {
+    if (!restaurant) return;
+    // Web landing URL — recipients without the app see a real page with the
+    // deep link + App Store / Play Store buttons, not a dead cravemap://.
+    const url = getRestaurantShareUrl(restaurant.id);
     Share.share({
-      message: `${restaurant?.name} in ${restaurant?.neighborhood} — ${restaurant?.recommendationReason}. Check it out on CraveMap!`,
-      title: restaurant?.name,
+      message: `${restaurant.name} · ${restaurant.cuisine} · ${restaurant.neighborhood}\n\n${url}`,
+      title: restaurant.name,
+      url,
     }).catch(() => {});
   }, [restaurant]);
 
@@ -265,7 +288,7 @@ export default function RestaurantDetail() {
           {/* Trust Strip */}
           <View style={styles.trustStrip}>
             <View style={styles.trustStat}>
-              <Text style={[styles.trustStatValue, { color: Colors.green }]}>{restaurant.tasteMatchPercent}%</Text>
+              <Text style={[styles.trustStatValue, { color: Colors.green }]}>{personalizedMatch}%</Text>
               <Text style={styles.trustStatLabel}>Taste Match</Text>
               <Text style={styles.trustStatSub}>for you</Text>
             </View>
@@ -287,6 +310,23 @@ export default function RestaurantDetail() {
 
           <View style={styles.reasonCard}>
             <Text style={styles.reasonText}>💡 {restaurant.recommendationReason}</Text>
+          </View>
+
+          {/* Personalized decision card — headline + order-first + proof */}
+          <View style={styles.decisionCard}>
+            <View style={styles.decisionHeader}>
+              <Ionicons name="sparkles-outline" size={17} color={Colors.primary} />
+              <Text style={styles.decisionTitle}>
+                {getDecisionHeadline({ ...restaurant, tasteMatchPercent: personalizedMatch })}
+              </Text>
+            </View>
+            <Text style={styles.decisionOrder}>Order first: {getPrimaryOrder(restaurant)}</Text>
+            {getRecommendationProof({ ...restaurant, tasteMatchPercent: personalizedMatch }, profile).map((line) => (
+              <View key={line} style={styles.proofRow}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.green} />
+                <Text style={styles.proofText}>{line}</Text>
+              </View>
+            ))}
           </View>
 
           {/* Community teaser */}
@@ -452,6 +492,7 @@ export default function RestaurantDetail() {
             (() => {
               const today = new Date().toISOString().split('T')[0];
               return [...checkIns]
+                .filter((ci) => !blockedUserIds.has(ci.userId))
                 .sort((a, b) => b.helpful - a.helpful)
                 .map((ci, idx) => (
                   <CheckInCard
@@ -467,6 +508,9 @@ export default function RestaurantDetail() {
                     // than as one block. Cap at 6 so very long feeds don't
                     // wait absurdly long.
                     entranceDelay={Math.min(idx, 6) * 80}
+                    // Surface the report/block ⋯ menu. Optimistically drop the
+                    // author's check-ins from the feed when the user blocks.
+                    onBlocked={(uid) => setBlockedUserIds((prev) => new Set(prev).add(uid))}
                   />
                 ));
             })()
@@ -492,7 +536,7 @@ export default function RestaurantDetail() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, styles.actionBtnPrimary]}
-          onPress={() => router.push('/check-in')}
+          onPress={() => router.push({ pathname: '/check-in', params: { restaurantId: restaurant.id } })}
         >
           <Ionicons name="camera-outline" size={20} color="#fff" />
           <View>
@@ -766,6 +810,43 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.text,
     lineHeight: 20,
+  },
+  decisionCard: {
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#EEE5DB',
+  },
+  decisionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  decisionTitle: {
+    ...Typography.h3,
+    color: Colors.text,
+    flex: 1,
+  },
+  decisionOrder: {
+    ...Typography.body,
+    color: Colors.text,
+    fontWeight: '600',
+    marginBottom: Spacing.sm,
+  },
+  proofRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 5,
+  },
+  proofText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    flex: 1,
+    lineHeight: 17,
   },
   checkInSub: {
     ...Typography.caption,

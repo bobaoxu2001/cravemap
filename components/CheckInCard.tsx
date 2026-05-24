@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CheckIn } from '../types';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import TagChip from './TagChip';
+import ReportModal from './ReportModal';
 import { CheckInEntrance, CheckInStickers, BounceOnChange } from './CheckInAnimation';
 
 interface CheckInCardProps {
@@ -16,6 +17,9 @@ interface CheckInCardProps {
   highlightNew?: boolean;
   /** Stagger delay for entrance reveal (ms). */
   entranceDelay?: number;
+  /** When provided, the ⋯ menu opens the Report/Block modal.
+      Apple Guideline 1.2: UGC apps must allow reporting + blocking. */
+  onBlocked?: (userId: string) => void;
 }
 
 const hypeLabel: Record<CheckIn['hypeRating'], { label: string; color: string; bg: string; emoji: string }> = {
@@ -31,10 +35,12 @@ export default function CheckInCard({
   helpfulMarked = false,
   highlightNew = false,
   entranceDelay = 0,
+  onBlocked,
 }: CheckInCardProps) {
   const hype = hypeLabel[checkIn.hypeRating];
   const helpfulInteractive = typeof onMarkHelpful === 'function';
   const helpfulDisabled = helpfulLoading || helpfulMarked;
+  const [reportVisible, setReportVisible] = useState(false);
 
   const handleHelpfulPress = () => {
     if (!onMarkHelpful || helpfulDisabled) return;
@@ -108,6 +114,19 @@ export default function CheckInCard({
       </View>
 
       <View style={styles.footer}>
+        {/* Report / block — surfaces UGC moderation as required by Apple 1.2.
+            Hidden when the caller didn't pass onBlocked (e.g. preview cards). */}
+        {typeof onBlocked === 'function' && (
+          <TouchableOpacity
+            onPress={() => setReportVisible(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.reportBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Report or block this check-in"
+          >
+            <Ionicons name="ellipsis-horizontal" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        )}
         {helpfulInteractive ? (
           <TouchableOpacity
             onPress={handleHelpfulPress}
@@ -143,6 +162,17 @@ export default function CheckInCard({
         )}
       </View>
     </View>
+    <ReportModal
+      visible={reportVisible}
+      checkInId={checkIn.id}
+      authorUserId={checkIn.userId}
+      authorName={checkIn.userName}
+      onClose={() => setReportVisible(false)}
+      onBlocked={(userId) => {
+        setReportVisible(false);
+        onBlocked?.(userId);
+      }}
+    />
     </CheckInEntrance>
   );
 }
@@ -287,6 +317,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  reportBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   helpfulCount: {
     ...Typography.caption,

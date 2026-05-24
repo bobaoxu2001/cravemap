@@ -12,7 +12,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
@@ -99,10 +99,22 @@ export default function CheckIn() {
 
   const [sampleRestaurants, setSampleRestaurants] = useState<Restaurant[]>([]);
   const [restaurantSearch, setRestaurantSearch] = useState('');
+  const params = useLocalSearchParams<{ restaurantId?: string }>();
 
   useEffect(() => {
-    getAllRestaurants().then(setSampleRestaurants);
-  }, []);
+    getAllRestaurants().then((all) => {
+      setSampleRestaurants(all);
+      // Deep-linked from a restaurant page — lock the restaurant in and
+      // skip the picker so the user isn't asked to choose it again.
+      if (params.restaurantId) {
+        const match = all.find((r) => r.id === params.restaurantId);
+        if (match) {
+          setSelectedRestaurant(match);
+          setStep(2);
+        }
+      }
+    });
+  }, [params.restaurantId]);
 
   const filteredRestaurants = restaurantSearch.trim()
     ? sampleRestaurants.filter((r) =>

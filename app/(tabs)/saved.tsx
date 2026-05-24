@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   View,
@@ -17,13 +17,14 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { Restaurant } from '../../types';
 import { getSavedRestaurants, unsaveRestaurant } from '../../src/services/saved';
 import { useAuth } from '../../src/hooks/useAuth';
+import { applyTastePassport } from '../../src/lib/recommendations';
 import TasteMatchBadge from '../../components/TasteMatchBadge';
 
 const DEMO_USER_ID = 'u001';
 
 export default function Saved() {
   const router = useRouter();
-  const { session, isSupabaseMode } = useAuth();
+  const { session, isSupabaseMode, profile } = useAuth();
   const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
 
   const [savedRestaurants, setSavedRestaurants] = useState<Restaurant[]>([]);
@@ -136,12 +137,19 @@ export default function Saved() {
     );
   }
 
+  // Recompute tasteMatchPercent against the current Taste Passport so the
+  // "match" sort and badges reflect this user, not the baseline.
+  const personalizedSaved = useMemo(
+    () => applyTastePassport(savedRestaurants, profile),
+    [savedRestaurants, profile]
+  );
+
   const displayed = (() => {
     const filtered = savedSearch.trim()
-      ? savedRestaurants.filter((r) =>
+      ? personalizedSaved.filter((r) =>
           [r.name, r.cuisine, r.neighborhood].join(' ').toLowerCase().includes(savedSearch.toLowerCase())
         )
-      : savedRestaurants;
+      : personalizedSaved;
     return [...filtered].sort((a, b) => {
       if (sortBy === 'match') {
         return (b.tasteMatchPercent ?? 0) - (a.tasteMatchPercent ?? 0);

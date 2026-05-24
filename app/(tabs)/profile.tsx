@@ -18,6 +18,8 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { UserProfile } from '../../types';
 import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
 import { createInvite, redeemInvite } from '../../src/services/invites';
+import { deleteAccount } from '../../src/services/account';
+import { getInviteShareUrl } from '../../src/lib/links';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 import Mascot from '../../components/Mascot';
@@ -108,11 +110,14 @@ export default function Profile() {
     setInviting(true);
     try {
       const invite = await createInvite();
+      // Share a web landing URL, not a raw cravemap:// link, so recipients
+      // without the app land on a real page (deep link + store links + code).
+      const inviteUrl = getInviteShareUrl(invite.code);
       try {
         await Share.share({
-          message: `Join me on CraveMap — the local food discovery app!\n\nUse my invite link: cravemap://redeem?code=${invite.code}\n\nOr enter code manually: ${invite.code}`,
+          message: `Join me on CraveMap — find restaurants real locals go to.\n\nUse my invite link: ${inviteUrl}\n\nOr enter code manually: ${invite.code}`,
           title: 'Join CraveMap',
-          url: `cravemap://redeem?code=${invite.code}`,
+          url: inviteUrl,
         });
       } catch {
         Alert.alert('Your invite code', invite.code, [{ text: 'OK' }]);
@@ -383,6 +388,69 @@ export default function Profile() {
         )}
         {signOutError ? <Text style={styles.signOutError}>{signOutError}</Text> : null}
 
+        {/* Delete Account — Apple Guideline 5.1.1(v): in-app deletion required.
+            Two-tap confirmation because this is irreversible. */}
+        {isSupabaseMode && (
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={() => {
+              Alert.alert(
+                'Delete account?',
+                'This permanently removes your profile, check-ins, saved spots, and rewards. This cannot be undone.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                      Alert.alert(
+                        'Really delete?',
+                        'Last chance — your data will be removed immediately.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete permanently',
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                await deleteAccount();
+                                await signOut().catch(() => {});
+                                router.replace('/onboarding/welcome');
+                              } catch (err) {
+                                Alert.alert(
+                                  'Delete failed',
+                                  err instanceof Error ? err.message : 'Please try again.'
+                                );
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    },
+                  },
+                ]
+              );
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+            accessibilityHint="Permanently delete your CraveMap account and all data"
+          >
+            <Ionicons name="trash-outline" size={16} color={Colors.error} />
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.legalRow}>
+          <TouchableOpacity onPress={() => router.push('/privacy-policy')} accessibilityRole="link">
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalDivider}>·</Text>
+          <TouchableOpacity onPress={() => router.push('/terms')} accessibilityRole="link">
+            <Text style={styles.legalLink}>Terms of Service</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.bottomPad} />
       </ScrollView>
     </SafeAreaView>
@@ -616,6 +684,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
+  },
+  deleteAccountButton: {
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.error + '40',
+    backgroundColor: 'transparent',
+    paddingVertical: Spacing.sm + 2,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  deleteAccountText: {
+    ...Typography.label,
+    color: Colors.error,
+    fontWeight: '600',
+  },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  legalLink: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    ...Typography.caption,
+    color: Colors.textMuted,
   },
   personaRow: {
     flexDirection: 'row',
