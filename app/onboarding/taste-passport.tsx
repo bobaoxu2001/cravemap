@@ -20,11 +20,11 @@ import type { UpdateTastePassportInput } from '../../src/services/types';
 const TOTAL_STEPS = 6;
 
 const cities = [
-  { id: 'nyc', label: 'New York City', emoji: '🗽', spots: '10 spots' },
-  { id: 'la', label: 'Los Angeles', emoji: '🌴', spots: '8 spots' },
-  { id: 'bay', label: 'Bay Area', emoji: '🌉', spots: '6 spots' },
-  { id: 'sea', label: 'Seattle', emoji: '🌲', spots: '4 spots' },
-  { id: 'bos', label: 'Boston', emoji: '🦞', spots: '4 spots' },
+  { id: 'nyc', label: 'New York City', emoji: '🗽', spots: '10 restaurants' },
+  { id: 'la', label: 'Los Angeles', emoji: '🌴', spots: '8 restaurants' },
+  { id: 'bay', label: 'Bay Area', emoji: '🌉', spots: '6 restaurants' },
+  { id: 'sea', label: 'Seattle', emoji: '🌲', spots: '4 restaurants' },
+  { id: 'bos', label: 'Boston', emoji: '🦞', spots: '4 restaurants' },
 ];
 
 const stepNames = ['City', 'Trust', 'Taste', 'Dislikes', 'Diet', 'Scene'];
@@ -281,7 +281,12 @@ export default function TastePassport() {
           <Text style={styles.subtitle}>{stepSubtitles[step - 1]}</Text>
 
           {step === 1 && (
-            <CityGrid selected={data.city} onSelect={(id) => setData({ ...data, city: id })} />
+            <>
+              <CityGrid selected={data.city} onSelect={(id) => setData({ ...data, city: id })} />
+              <Text style={styles.cityFootnote}>
+                Don&apos;t see your city? We&apos;re rolling out coverage gradually — pick the closest for now to preview, and we&apos;ll let you know when your city launches.
+              </Text>
+            </>
           )}
           {step === 2 && (
             <MultiSelectChips options={trustOptions} selected={data.trust} onToggle={(v) => toggleArr('trust', v)} />
@@ -474,6 +479,12 @@ const styles = StyleSheet.create({
   cityLabelActive: {
     color: Colors.primary,
     fontWeight: '700',
+  },
+  cityFootnote: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginTop: Spacing.md,
+    lineHeight: 18,
   },
   navContainer: {
     paddingHorizontal: Spacing.md,

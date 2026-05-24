@@ -42,7 +42,7 @@ const rewards: {
   {
     emoji: '🏅',
     title: 'Founding Food Scout Badge',
-    desc: 'Permanent "Founding Food Scout" badge on your profile. Only the first 1,000 scouts earn this.',
+    desc: 'Permanent "Founding Food Scout" badge on your profile — recognition for being one of the first to shape the local-approved feed.',
     color: '#FFF8E1',
     borderColor: Colors.accent,
   },
@@ -181,7 +181,7 @@ export default function Rewards() {
         <View style={styles.whyCard}>
           <Text style={styles.whyTitle}>Why this matters</Text>
           <Text style={styles.whyText}>
-            Hey — I built CraveMap because every food app started feeling the same: same 10 viral spots, same staged photos, same lukewarm "must-try" lists. The first 1,000 scouts get to flip that. Your check-ins literally train the model. Your picks become the local-approved feed. You\'re not a user — you\'re a co-author. Thanks for being early.
+            Hey — I built CraveMap because every food app started feeling the same: same 10 viral spots, same staged photos, same lukewarm "must-try" lists. Early scouts get to flip that. Your check-ins train the local-approved feed. You&apos;re not a user — you&apos;re a co-author. Thanks for being early.
           </Text>
         </View>
 
@@ -290,7 +290,7 @@ export default function Rewards() {
         {/* Footer note */}
         <View style={styles.footerNote}>
           <Text style={styles.footerNoteText}>
-            🕐 Founding Scout status closes when we hit 1,000 members or launch publicly — whichever comes first.
+            🕐 Founding Scout status closes when CraveMap launches publicly.
           </Text>
         </View>
 

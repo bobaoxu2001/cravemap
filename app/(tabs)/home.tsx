@@ -44,7 +44,7 @@ const QUICK_FILTERS = [
 const sections = [
   { key: 'trending-week', emoji: '🔥', title: 'Trending this week', subtitle: (city: string) => `What people in ${city} are talking about right now` },
   { key: 'local-approved', emoji: '🏘️', title: 'Local-approved', subtitle: () => 'What your neighbors actually eat — not what tourists post' },
-  { key: 'taste-match', emoji: '👤', title: 'People with your taste', subtitle: () => '247 Spicy Adventurers in NYC saved these this month' },
+  { key: 'taste-match', emoji: '👤', title: 'People with your taste', subtitle: () => 'Ranked by how well each spot matches your Taste Passport' },
   { key: 'actually-spicy', emoji: '🌶️', title: 'Actually spicy', subtitle: () => 'Cleared by scouts with verified spice tolerance' },
   { key: 'hidden-by-algo', emoji: '🫥', title: 'Hidden by the algorithm', subtitle: () => "Locals know. Algorithms don't. Yet." },
   { key: 'anti-hype', emoji: '🤫', title: 'Worth-it picks', subtitle: () => 'Quietly excellent. No viral video required.' },
@@ -289,7 +289,7 @@ export default function Home() {
                 <Text style={styles.checkInEmoji}>🍽️</Text>
                 <View>
                   <Text style={styles.checkInTitle}>Had a great meal?</Text>
-                  <Text style={styles.checkInSub}>Earn Founding Scout points</Text>
+                  <Text style={styles.checkInSub}>Every check-in here is location-verified</Text>
                 </View>
               </View>
               <View style={styles.checkInBtn}>
