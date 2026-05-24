@@ -363,6 +363,22 @@ export default function Home() {
               );
             })()}
 
+            {/* Scout Activity — empty-state CTA when no real check-ins yet */}
+            {searchQuery === '' && activeFilter === 'all' && recentCheckIns.length === 0 && (
+              <TouchableOpacity
+                style={styles.scoutEmpty}
+                onPress={() => router.push('/check-in')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.scoutEmptyEmoji}>🌱</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.scoutEmptyTitle}>Be the first scout in {selectedCity.split(' ')[0]}</Text>
+                  <Text style={styles.scoutEmptySub}>No check-ins here yet. Yours could be the one that helps your neighbors find the real spots.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+              </TouchableOpacity>
+            )}
+
             {/* Scout Activity */}
             {searchQuery === '' && activeFilter === 'all' && recentCheckIns.length > 0 && (
               <View style={styles.activitySection}>
@@ -812,6 +828,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
+  },
+  scoutEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.primary + '25',
+  },
+  scoutEmptyEmoji: {
+    fontSize: 28,
+  },
+  scoutEmptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  scoutEmptySub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 16,
   },
   activityHeader: {
     flexDirection: 'row',

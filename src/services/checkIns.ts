@@ -4,6 +4,7 @@ import { USE_SUPABASE } from './config';
 import * as mock from './checkIns.mock';
 import * as supabase from './checkIns.supabase';
 import type { CreateCheckInInput, CreateCheckInResult, MarkHelpfulResult } from './types';
+import { assertCleanText } from '../lib/contentFilter';
 
 async function withMockFallback<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
   try {
@@ -47,6 +48,10 @@ export function getCheckInsByUserId(userId: string): Promise<CheckIn[]> {
 }
 
 export function createCheckIn(input: CreateCheckInInput): Promise<CreateCheckInResult> {
+  // Pre-display content filter (Apple Guideline 1.2). Empty reviews are
+  // allowed — users can post tags + photos only.
+  assertCleanText(input.review ?? '', { fieldName: 'Review', allowEmpty: true });
+
   if (!USE_SUPABASE) {
     return mock.createCheckIn(input);
   }
