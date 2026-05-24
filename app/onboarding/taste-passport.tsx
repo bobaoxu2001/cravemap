@@ -247,7 +247,7 @@ export default function TastePassport() {
           <Mascot persona={persona.name} size={180} style={styles.resultMascot} />
           <Text style={styles.resultPersona}>{persona.name}</Text>
           <Text style={styles.resultText}>
-            Your Taste Passport is ready. We&apos;ll match you with restaurants 247 other {persona.name}s love.
+            Your Taste Passport is ready. We&apos;ll match you with restaurants other {persona.name}s love.
           </Text>
         </View>
       </SafeAreaView>
@@ -275,7 +275,7 @@ export default function TastePassport() {
         {/* Content */}
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>🛂 Taste Passport</Text>
+            <Text style={styles.badgeText}>Taste Passport</Text>
           </View>
           <Text style={styles.title}>{stepTitles[step - 1]}</Text>
           <Text style={styles.subtitle}>{stepSubtitles[step - 1]}</Text>

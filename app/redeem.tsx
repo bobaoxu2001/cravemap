@@ -119,15 +119,15 @@ export default function RedeemScreen() {
               <>
                 <View style={styles.mascotBox}>
                   <Sparkles active />
-                  <Text style={styles.bigEmoji}>🎉</Text>
+                  <Ionicons name="checkmark-circle" size={56} color={Colors.green} />
                 </View>
-                <Text style={styles.title}>Welcome to CraveMap!</Text>
+                <Text style={styles.title}>Welcome to CraveMap</Text>
                 <Text style={styles.subtitle}>
-                  Your invite code <Text style={styles.code}>{String(code).toUpperCase()}</Text> has been redeemed.
-                  {'\n'}You're officially part of the community.
+                  Code <Text style={styles.code}>{String(code).toUpperCase()}</Text> redeemed.
+                  {'\n\n'}Next: build your Taste Passport so we can match restaurants to what you actually like.
                 </Text>
                 <TouchableOpacity style={styles.primaryBtn} onPress={handleGoToProfile}>
-                  <Text style={styles.primaryBtnText}>Go to My Profile</Text>
+                  <Text style={styles.primaryBtnText}>Continue</Text>
                 </TouchableOpacity>
               </>
             )}

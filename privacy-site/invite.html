@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join CraveMap</title>
+  <meta name="description" content="You've been invited to CraveMap. Use this code to unlock your taste-matched restaurant feed." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #FAFAFA;
+      color: #18181B;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #FFFFFF;
+      border-radius: 16px;
+      border: 1px solid #E5E5E5;
+      max-width: 420px;
+      width: 100%;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    }
+    .brand {
+      color: #E8450A;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin: 8px 0 4px;
+    }
+    .sub {
+      color: #52525B;
+      font-size: 15px;
+      margin-bottom: 24px;
+    }
+    .code-label {
+      font-size: 12px;
+      color: #A1A1AA;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .code-box {
+      background: #F7F4F0;
+      border: 1.5px dashed #E8450A;
+      border-radius: 12px;
+      padding: 16px;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: #E8450A;
+      letter-spacing: 2px;
+      margin-bottom: 24px;
+      word-break: break-all;
+    }
+    .cta {
+      display: block;
+      background: #E8450A;
+      color: #FFFFFF;
+      text-decoration: none;
+      padding: 14px 20px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+    .secondary {
+      display: block;
+      background: #FFFFFF;
+      color: #18181B;
+      text-decoration: none;
+      padding: 12px 20px;
+      border-radius: 999px;
+      font-weight: 500;
+      font-size: 14px;
+      border: 1px solid #E5E5E5;
+      margin-bottom: 8px;
+    }
+    .hint {
+      font-size: 13px;
+      color: #52525B;
+      margin-top: 16px;
+      line-height: 1.6;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #A1A1AA;
+    }
+    .footer a {
+      color: #A1A1AA;
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">好吃GO · CRAVEMAP</div>
+    <h1>You've been invited</h1>
+    <p class="sub">Find restaurants real locals go to — picked by people with your taste.</p>
+
+    <div class="code-label">Your invite code</div>
+    <div class="code-box" id="code">—</div>
+
+    <a class="cta" id="appLink" href="cravemap://redeem">Open in CraveMap</a>
+    <a class="secondary" href="https://apps.apple.com/app/cravemap/id">Download for iPhone</a>
+    <a class="secondary" href="https://play.google.com/store/apps/details?id=com.cravemap.app">Download for Android</a>
+
+    <p class="hint">After installing, sign up and tap <strong>Profile → "Have an invite code?"</strong> to redeem.</p>
+
+    <p class="footer"><a href="/index.html">Privacy</a> · <a href="/terms.html">Terms</a></p>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var code = (params.get('code') || '').trim().toUpperCase();
+      if (code) {
+        document.getElementById('code').textContent = code;
+        document.getElementById('appLink').href = 'cravemap://redeem?code=' + encodeURIComponent(code);
+      }
+    })();
+  </script>
+</body>
+</html>
