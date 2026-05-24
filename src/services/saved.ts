@@ -39,6 +39,7 @@ export function saveRestaurant(userId: string, restaurantId: string): Promise<vo
   if (!USE_SUPABASE) {
     return mock.saveRestaurant(userId, restaurantId);
   }
+  // Write — do not fall back silently; surface errors to the caller.
   return supabase.saveRestaurant(userId, restaurantId);
 }
 
@@ -46,5 +47,6 @@ export function unsaveRestaurant(userId: string, restaurantId: string): Promise<
   if (!USE_SUPABASE) {
     return mock.unsaveRestaurant(userId, restaurantId);
   }
+  // Write — do not fall back silently; surface errors to the caller.
   return supabase.unsaveRestaurant(userId, restaurantId);
 }

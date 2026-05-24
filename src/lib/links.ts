@@ -5,10 +5,11 @@
 // deployed privacy-site landing pages, which try the deep link, fall back
 // to App Store / Play Store, and (for invites) show the code for manual entry.
 //
-// Update WEB_BASE_URL to wherever privacy-site/ is actually deployed. The
-// default matches the planned domain in APP_STORE.md.
+// Set EXPO_PUBLIC_WEB_BASE_URL to override (e.g. when the cravemap.app
+// domain ships). Default points at the current GitHub Pages deploy.
 
-export const WEB_BASE_URL = 'https://bobaoxu2001.github.io/cravemap';
+export const WEB_BASE_URL =
+  process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'https://bobaoxu2001.github.io/cravemap';
 
 /** Public share URL for an invite code. Lands on privacy-site/invite.html. */
 export function getInviteShareUrl(code: string): string {
