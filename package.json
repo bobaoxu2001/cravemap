@@ -8,7 +8,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npx expo install --check"
+    "check": "npm run typecheck && npx expo install --check",
+    "preflight": "bash scripts/preflight.sh"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
