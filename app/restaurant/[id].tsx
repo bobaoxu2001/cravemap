@@ -24,6 +24,7 @@ import {
   unsaveRestaurant,
 } from '../../src/services/saved';
 import { useAuth } from '../../src/hooks/useAuth';
+import { getBlockedUserIds } from '../../src/services/blocks';
 import {
   computeTasteMatch,
   getDecisionHeadline,
@@ -51,6 +52,8 @@ export default function RestaurantDetail() {
   // Track per-check-in marked-helpful + in-flight state for this session.
   const [helpfulMarked, setHelpfulMarked] = useState<Record<string, boolean>>({});
   const [helpfulLoading, setHelpfulLoading] = useState<Record<string, boolean>>({});
+  // IDs of users the current user has blocked — hidden from the check-in feed.
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
 
   // Personalized taste-match — falls back to baseline when passport incomplete.
   const personalizedMatch = useMemo(
@@ -59,6 +62,8 @@ export default function RestaurantDetail() {
   );
 
   const loadData = useCallback(() => {
+    // Load blocked IDs in parallel so we can filter them from the feed.
+    void getBlockedUserIds().then((ids) => setBlockedUserIds(new Set(ids)));
     Promise.all([getRestaurantById(id), getCheckInsByRestaurantId(id)])
       .then(([r, c]) => {
         setRestaurant(r ?? null);
@@ -487,6 +492,7 @@ export default function RestaurantDetail() {
             (() => {
               const today = new Date().toISOString().split('T')[0];
               return [...checkIns]
+                .filter((ci) => !blockedUserIds.has(ci.userId))
                 .sort((a, b) => b.helpful - a.helpful)
                 .map((ci, idx) => (
                   <CheckInCard
@@ -502,6 +508,9 @@ export default function RestaurantDetail() {
                     // than as one block. Cap at 6 so very long feeds don't
                     // wait absurdly long.
                     entranceDelay={Math.min(idx, 6) * 80}
+                    // Surface the report/block ⋯ menu. Optimistically drop the
+                    // author's check-ins from the feed when the user blocks.
+                    onBlocked={(uid) => setBlockedUserIds((prev) => new Set(prev).add(uid))}
                   />
                 ));
             })()
