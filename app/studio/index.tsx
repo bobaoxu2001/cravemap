@@ -14,23 +14,23 @@ import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../consta
 const features = [
   {
     icon: '🧠',
-    title: 'AI Menu Analysis',
-    desc: 'Paste your menu and get positioning insights instantly.',
+    title: 'Menu Analysis',
+    desc: 'Paste your menu and get dish positioning, pricing gaps, and customer fit — instantly.',
   },
   {
     icon: '📣',
-    title: 'Campaign Generator',
-    desc: 'Turn dishes into ready-to-post Instagram captions and SMS blasts.',
+    title: '7-Day Campaign Calendar',
+    desc: 'A full week of ready-to-post captions, video scripts, and content ideas from your menu.',
   },
   {
     icon: '📈',
-    title: 'Review Intelligence',
-    desc: 'Upload reviews to surface what customers love (and what to fix).',
+    title: 'Customer Insight Summary',
+    desc: "Who's most likely to love your restaurant — and what to say to bring them in.",
   },
   {
-    icon: '🤖',
-    title: 'Agent Logs',
-    desc: 'See exactly what the AI did and why, every step of the way.',
+    icon: '🃏',
+    title: 'Recommendation Cards',
+    desc: "CraveMap surfaces your best dishes to nearby diners who match your restaurant's vibe.",
   },
 ];
 
@@ -62,10 +62,9 @@ export default function StudioHome() {
             <Text style={styles.logoEmoji}>📊</Text>
             <Text style={styles.logoLabel}>CraveMap Studio</Text>
           </View>
-          <Text style={styles.headline}>Your restaurant,{'\n'}amplified by AI.</Text>
+          <Text style={styles.headline}>Grow your restaurant{'\n'}with AI that gets food.</Text>
           <Text style={styles.subline}>
-            Upload your menu and reviews. CraveMap Studio turns them into marketing
-            campaigns and customer insights — in seconds.
+            Paste your menu. Get a full week of campaigns, customer insights, and dish recommendations — built for how restaurants actually market.
           </Text>
         </View>
 
@@ -88,19 +87,18 @@ export default function StudioHome() {
         <View style={styles.ctaCard}>
           <View style={styles.ctaBadge}>
             <View style={styles.ctaBadgeDot} />
-            <Text style={styles.ctaBadgeText}>EARLY ACCESS</Text>
+            <Text style={styles.ctaBadgeText}>PILOT PROGRAM</Text>
           </View>
-          <Text style={styles.ctaTitle}>Be first in the door.</Text>
+          <Text style={styles.ctaTitle}>Start with your menu.</Text>
           <Text style={styles.ctaDesc}>
-            CraveMap Studio is launching to a small group of restaurants first.
-            Join the waitlist and we'll reach out personally.
+            Takes 2 minutes. Paste your menu, tell us about your restaurant, and get your first AI analysis and 7-day campaign — free during pilot.
           </Text>
           <TouchableOpacity
             style={styles.ctaButton}
             onPress={() => router.push('/studio/onboarding')}
             activeOpacity={0.85}
           >
-            <Text style={styles.ctaButtonText}>Get Started — It's Free</Text>
+            <Text style={styles.ctaButtonText}>Set Up My Restaurant</Text>
             <Ionicons name="arrow-forward" size={16} color="#fff" />
           </TouchableOpacity>
         </View>

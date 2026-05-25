@@ -9,8 +9,8 @@
 | Field | Value |
 |---|---|
 | **Bundle ID** | `com.cravemap.app` |
-| **App Name** | `CraveMap – Local Food Discovery` (30 chars ✓) |
-| **Subtitle** | `Find spots loved by locals` (26 chars ✓) |
+| **App Name** | `CraveMap – AI Food Discovery` (29 chars ✓) |
+| **Subtitle** | `Matched to your taste & mood` (29 chars ✓) |
 | **Category** | Food & Drink (Primary) · Lifestyle (Secondary) |
 | **Age Rating** | 12+ (user-generated content, no violent/adult content) |
 | **Content Rights** | No third-party content requiring permissions |
@@ -22,9 +22,12 @@
 ## App Description (4000 char max — paste into "Description" field)
 
 ```
-CraveMap is the food discovery app built for people who actually care about what they eat.
+CraveMap is the food discovery app built for people who actually care about what they eat — and the AI growth platform built for the restaurants they love.
 
-Instead of star ratings from strangers, CraveMap shows you restaurants through the eyes of people who share your taste — your Taste Passport matches you with spots that fit your flavor profile, dietary needs, and the kind of food experience you're after.
+Instead of star ratings from strangers, CraveMap shows you restaurants through the eyes of people who share your taste. Your Taste Passport matches you with spots that fit your flavor profile, mood, budget, and the kind of food experience you're after.
+
+🎯 YOUR TASTE PASSPORT
+Complete a short taste setup on first launch. CraveMap uses your preferences, dietary needs, and food-scene interests to rank restaurants uniquely for you — not just the most-reviewed ones.
 
 🗺 DISCOVER YOUR CITY'S BEST SPOTS
 Browse curated restaurants across New York City, Los Angeles, Bay Area, Seattle, and Boston. Every listing includes taste-match scores, verified local check-ins, and real photos from real visits.
@@ -32,17 +35,16 @@ Browse curated restaurants across New York City, Los Angeles, Bay Area, Seattle,
 ✍️ CHECK IN AFTER YOUR VISIT
 Share a quick review after dining — photos, taste tags, and your honest "Worth It / Overhyped / Not Sure" verdict. Your check-ins help others in your city find the real gems.
 
-🎯 YOUR TASTE PASSPORT
-Complete a short taste setup on first launch. CraveMap uses your preferences, dietary needs, and food-scene interests to rank restaurants uniquely for you.
-
-🗺 INTERACTIVE MAP
-Find restaurants near you on a live map with clustering, your GPS location, and instant detail cards. No sign-in required to browse.
-
 🔖 SAVE YOUR HIT LIST
-Bookmark spots you want to try and revisit them anytime from your Saved tab — even offline.
+Bookmark spots you want to try and revisit them anytime from your Saved tab.
 
 👥 INVITE FRIENDS
 Share invite codes with friends and track your Founding Scout progress as your network grows.
+
+---
+
+🍽 FOR RESTAURANT OWNERS — CRAVEMAP STUDIO
+Turn your menu into AI-powered marketing. Paste your menu text and get a full week of ready-to-post captions, video scripts, dish positioning insights, and customer profiles — built for how restaurants actually grow.
 
 ---
 
@@ -56,18 +58,18 @@ For support: ax2183@nyu.edu
 ## Promotional Text (170 char — shown above description, can change without review)
 
 ```
-Now live in NYC, LA, Bay Area, Seattle & Boston. Discover restaurants matched to your taste — not just the most-reviewed ones.
+Live in 5 cities. Find restaurants matched to your taste — not just the most-reviewed ones. Restaurant owners: grow with AI-powered campaigns.
 ```
-(125 chars ✓)
+(142 chars ✓)
 
 ---
 
 ## Keywords (100 chars, comma-separated, no spaces after commas)
 
 ```
-food,restaurant,local,discovery,map,dining,review,chinese food,taste,foodie,spots,eat,NYC,LA
+food,restaurant,discovery,map,dining,review,taste,foodie,AI,menu,campaign,spots,eat,NYC,LA
 ```
-(93 chars ✓)
+(91 chars ✓)
 
 **Notes:**
 - Don't repeat words already in the App Name ("CraveMap", "Local", "Food", "Discovery")
@@ -79,7 +81,7 @@ food,restaurant,local,discovery,map,dining,review,chinese food,taste,foodie,spot
 ## What's New (first release)
 
 ```
-Welcome to CraveMap v1.0! Discover restaurants matched to your taste across 5 US cities, share check-ins after your visits, and build your food hit list.
+CraveMap now works for both sides of the table. Diners: find restaurants matched to your taste across 5 US cities. Restaurant owners: try CraveMap Studio — paste your menu and get AI-powered campaigns and customer insights.
 ```
 
 ---

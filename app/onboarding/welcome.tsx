@@ -17,22 +17,22 @@ const features = [
   {
     icon: '🏘️',
     iconBg: '#E8F5EE',
-    title: 'Local Picks',
-    desc: 'Curated by people who actually live there, not tourists.',
+    title: 'Taste Match',
+    desc: 'Ranked by people who eat the same way you do — not by paid reviews.',
     accentColor: Colors.green,
   },
   {
     icon: '👤',
     iconBg: Colors.secondary,
-    title: 'Taste Match',
-    desc: 'Find restaurants loved by people with your exact taste.',
+    title: 'Mood & Budget Fit',
+    desc: 'Quick lunch, date night, late-night craving — filter by the moment, not just cuisine.',
     accentColor: Colors.primary,
   },
   {
     icon: '✅',
     iconBg: '#F0F4FF',
     title: 'Real Check-ins',
-    desc: 'Location-verified reviews — no bots, no paid influencers.',
+    desc: 'Location-verified reviews from real visits. No bots, no paid influencers.',
     accentColor: '#7B9EFF',
   },
 ];
@@ -110,7 +110,7 @@ export default function Welcome() {
         <View style={styles.heroSection}>
           <View style={styles.kickerRow}>
             <View style={styles.kickerDot} />
-            <Text style={styles.kicker}>FOOD DISCOVERY · 5 CITIES · INVITE-ONLY</Text>
+            <Text style={styles.kicker}>AI FOOD DISCOVERY · 5 CITIES · INVITE-ONLY</Text>
           </View>
           <View style={styles.brandRow}>
             <Text style={styles.chineseName}>好吃GO</Text>
@@ -120,12 +120,12 @@ export default function Welcome() {
           </View>
           <Text style={styles.appName}>CraveMap</Text>
           <View style={styles.sloganContainer}>
-            <Text style={styles.headline}>Stop eating at tourist traps.</Text>
+            <Text style={styles.headline}>Find food that actually fits you.</Text>
             <Text style={styles.headlineSub}>
-              Find restaurants real locals actually go to — picked by people with your exact taste.
+              Restaurants matched to your taste, mood, budget, and lifestyle — not just the most-reviewed ones.
             </Text>
             <View style={styles.sloganChineseWrap}>
-              <Text style={styles.sloganChinese}>本地人带路，同口味避雷</Text>
+              <Text style={styles.sloganChinese}>同口味的人才知道哪里好吃</Text>
             </View>
           </View>
         </View>
@@ -247,7 +247,7 @@ export default function Welcome() {
               ))}
             </View>
             <Text style={styles.socialProof}>
-              847 Founding Food Scouts already in. <Text style={{ color: Colors.primary, fontWeight: '700' }}>153 spots left.</Text>
+              847 Founding Food Scouts in. <Text style={{ color: Colors.primary, fontWeight: '700' }}>153 diner spots left.</Text>
             </Text>
           </View>
 

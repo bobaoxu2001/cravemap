@@ -41,7 +41,7 @@ export default function RoleSelect() {
             <View style={styles.cardBody}>
               <Text style={styles.cardTitle}>I'm hungry</Text>
               <Text style={styles.cardSubtitle}>
-                Find restaurants and dishes that match your cravings.
+                Find restaurants and dishes that match your taste, mood, and budget.
               </Text>
             </View>
             <View style={[styles.cardArrow, { backgroundColor: Colors.primary }]}>
@@ -60,7 +60,7 @@ export default function RoleSelect() {
             <View style={styles.cardBody}>
               <Text style={[styles.cardTitle, styles.studioCardTitle]}>I run a restaurant</Text>
               <Text style={[styles.cardSubtitle, styles.studioCardSubtitle]}>
-                Use AI to turn your menu into campaigns and customer insights.
+                Turn your menu and reviews into AI-powered campaigns and customer insights.
               </Text>
             </View>
             <View style={[styles.cardArrow, { backgroundColor: '#3A3AFF' }]}>
