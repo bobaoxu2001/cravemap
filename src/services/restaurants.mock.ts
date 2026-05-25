@@ -1,16 +1,22 @@
 import type { Restaurant } from '../../types';
 import { mockRestaurants } from '../../data/mockRestaurants';
+import { normalizeRestaurants } from '../lib/restaurantNormalize';
+
+// Normalized once at module load. The source array stays unchanged so
+// the seed data remains canonical; everything downstream sees the
+// cleaned categories + inferred vibe.
+const restaurants = normalizeRestaurants(mockRestaurants);
 
 export function getAllRestaurants(): Promise<Restaurant[]> {
-  return Promise.resolve(mockRestaurants);
+  return Promise.resolve(restaurants);
 }
 
 export function getRestaurantsByCity(city: string): Promise<Restaurant[]> {
-  return Promise.resolve(mockRestaurants.filter((r) => r.city === city));
+  return Promise.resolve(restaurants.filter((r) => r.city === city));
 }
 
 export function getRestaurantById(id: string): Promise<Restaurant | null> {
-  const found = mockRestaurants.find((r) => r.id === id);
+  const found = restaurants.find((r) => r.id === id);
   return Promise.resolve(found ?? null);
 }
 
@@ -18,7 +24,7 @@ export function getRestaurantsByCategory(
   category: string,
   city?: string
 ): Promise<Restaurant[]> {
-  let results = mockRestaurants.filter((r) => r.categories.includes(category));
+  let results = restaurants.filter((r) => r.categories.includes(category));
   if (city) {
     results = results.filter((r) => r.city === city);
   }
@@ -26,7 +32,7 @@ export function getRestaurantsByCategory(
 }
 
 export function getTrendingRestaurants(city?: string): Promise<Restaurant[]> {
-  let results = mockRestaurants.filter(
+  let results = restaurants.filter(
     (r) => r.trendingSignal === 'trending' || r.trendingSignal === 'rising'
   );
   if (city) {
@@ -36,7 +42,7 @@ export function getTrendingRestaurants(city?: string): Promise<Restaurant[]> {
 }
 
 export function getHiddenGemRestaurants(city?: string): Promise<Restaurant[]> {
-  let results = mockRestaurants.filter(
+  let results = restaurants.filter(
     (r) => r.trendingSignal === 'underrated' || r.verifiedCheckIns < 600
   );
   if (city) {
@@ -50,7 +56,7 @@ export function searchRestaurants(
   city?: string
 ): Promise<Restaurant[]> {
   const q = query.toLowerCase();
-  let results = mockRestaurants.filter((r) => {
+  let results = restaurants.filter((r) => {
     return (
       r.name.toLowerCase().includes(q) ||
       r.cuisine.toLowerCase().includes(q) ||

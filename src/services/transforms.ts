@@ -1,6 +1,7 @@
 // src/services/transforms.ts
 import type { CheckIn, Restaurant, UserProfile } from '../../types';
 import type { CheckInRow, ProfileRow, RestaurantRow } from './types';
+import { normalizeRestaurant } from '../lib/restaurantNormalize';
 
 const FALLBACK_AVATAR = 'https://picsum.photos/seed/cravemap_user/200/200';
 
@@ -54,7 +55,7 @@ function optionalString(value: string | null | undefined): string | undefined {
 
 export function restaurantFromRow(row: RestaurantRow): Restaurant {
   const localApprovedPercent = row.local_approved_percent ?? 0;
-  return {
+  const raw: Restaurant = {
     id: row.id,
     name: row.name,
     city: row.city,
@@ -85,6 +86,9 @@ export function restaurantFromRow(row: RestaurantRow): Restaurant {
     trendingSignal: row.trending_signal ?? undefined,
     recentVisits: row.recent_visits ?? 0,
   };
+  // Trust-tag collapse + local-approved threshold + vibe default.
+  // Same normalizer the mock store uses, so dev and prod behave identically.
+  return normalizeRestaurant(raw);
 }
 
 export function checkInFromRow(row: CheckInRow): CheckIn {

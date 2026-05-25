@@ -30,6 +30,9 @@ export interface Restaurant {
   trendingSignal?: 'trending' | 'rising' | 'underrated' | 'classic';
   friendsSaved?: number;
   recentVisits?: number; // visits in the last 7 days
+  // Sit-down vibe — the missing dimension date-night / quick-lunch decisions
+  // actually turn on. Independent of cuisine, price, and categories.
+  vibe?: 'hole-in-the-wall' | 'casual' | 'lively' | 'upscale' | 'quiet';
 }
 
 export interface CheckIn {
