@@ -125,10 +125,7 @@ export default function StudioAnalysis() {
         <ResultView
           analysis={analysis}
           onRerun={handleRun}
-          onCampaign={() => {
-            // Placeholder — Campaign Generator screen lands in the next iteration.
-            router.push('/studio/dashboard');
-          }}
+          onCampaign={() => router.push('/studio/campaign')}
         />
       )}
     </SafeAreaView>

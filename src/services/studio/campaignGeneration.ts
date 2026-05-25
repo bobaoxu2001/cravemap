@@ -25,12 +25,18 @@ export interface CampaignInput {
 // ── Output (mirrors ai_campaigns columns) ─────────────────────────────────────
 
 export interface ContentCalendarItem {
-  /** ISO date string or relative label like "Week 1 - Monday". */
+  /** Day label, e.g. "Day 1 — Monday". */
   date: string;
   channel: string;
   contentType: string;
   caption: string;
   hashtags: string[];
+  /** The star dish featured in this post. */
+  heroDish: string;
+  /** Target customer segment for this day, e.g. "Office lunch crowd". */
+  targetSegment: string;
+  /** Clear call-to-action text, e.g. "Tag a friend who needs this." */
+  cta: string;
 }
 
 export interface VideoScript {
@@ -95,13 +101,16 @@ const CAMPAIGN_SCHEMA: Record<string, unknown> = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['date', 'channel', 'contentType', 'caption', 'hashtags'],
+        required: ['date', 'channel', 'contentType', 'caption', 'hashtags', 'heroDish', 'targetSegment', 'cta'],
         properties: {
           date: { type: 'string' },
           channel: { type: 'string' },
           contentType: { type: 'string' },
           caption: { type: 'string' },
           hashtags: { type: 'array', items: { type: 'string' } },
+          heroDish: { type: 'string' },
+          targetSegment: { type: 'string' },
+          cta: { type: 'string' },
         },
       },
     },
@@ -200,14 +209,22 @@ ${personas}
 
   const userPrompt = `${contextLines.join('\n')}
 ${analysisSection}
-Generate a 2-week marketing campaign that includes:
-1. A campaign title and one-sentence goal statement.
-2. A content calendar with at least 6 posts across the requested channels, spread over 2 weeks.
-3. Two short video scripts (30–60 second Reels/TikToks) — include scene-by-scene breakdowns.
-4. Three ready-to-post Instagram captions with hashtags for different dishes or themes.
-5. Three recommendation card copy sets (headline + body + CTA) for use in the CraveMap app or email.
+Generate a focused 7-day local restaurant marketing campaign. Requirements:
+1. Campaign title (punchy, specific to this restaurant) + one-sentence goal.
+2. A content calendar with exactly 7 posts — one per day, Mon–Sun. Each post must include:
+   - date: "Day N — [Weekday]" format (e.g. "Day 1 — Monday")
+   - channel: one of instagram, tiktok, facebook, or email
+   - contentType: e.g. "Reel", "Feed Post", "Story", "Short Video", "Email Blast"
+   - caption: ready-to-post caption text (1-3 sentences)
+   - hashtags: 4-6 relevant hashtags
+   - heroDish: the featured menu item for that day
+   - targetSegment: the specific customer type to reach (e.g. "Late-night students", "Date night couples")
+   - cta: a specific, actionable call-to-action (e.g. "Tag someone who needs this tonight.")
+3. Two short video scripts (30–45 seconds) — TikTok/Reel format with scene-by-scene breakdowns.
+4. Three Instagram captions — polished, ready to post with hashtags.
+5. Three CraveMap recommendation cards — short punchy headline + 1-2 sentence body + CTA.
 
-Make the copy feel local and genuine — this restaurant has real character.`;
+Local and genuine voice. No corporate-speak. Write like a food-obsessed local would.`;
 
   return callGeminiStructured<CampaignOutput>({
     systemInstruction: SYSTEM_INSTRUCTION,
@@ -232,18 +249,74 @@ export const EXAMPLE_CAMPAIGN_OUTPUT: CampaignOutput = {
   campaign_goal: 'Drive weekend dinner traffic from Instagram and TikTok to new first-time diners.',
   content_calendar: [
     {
-      date: 'Week 1 - Monday',
+      date: 'Day 1 — Monday',
       channel: 'instagram',
       contentType: 'Reel',
       caption: 'This is what 15 years of muscle memory looks like. 🍜 Hand-pulled noodles, every single morning.',
       hashtags: ['#handpulled', '#nycfood', '#chinesefood', '#noodlelovers', '#queens'],
+      heroDish: 'Hand-pulled Beef Noodle Soup',
+      targetSegment: 'Foodies and food content creators',
+      cta: 'Save this for your next noodle craving. 🔖',
     },
     {
-      date: 'Week 1 - Thursday',
+      date: 'Day 2 — Tuesday',
       channel: 'tiktok',
-      contentType: 'Short video',
+      contentType: 'Short Video',
       caption: "POV: you finally found the best wonton spot in NYC and it's been 2 blocks away the whole time.",
       hashtags: ['#nycfoodie', '#wontons', '#hiddengems', '#foryoupage'],
+      heroDish: 'Pork Wontons in Chili Oil',
+      targetSegment: 'TikTok food explorers, 18–30',
+      cta: 'Tag the friend you always drag to restaurants 👇',
+    },
+    {
+      date: 'Day 3 — Wednesday',
+      channel: 'instagram',
+      contentType: 'Feed Post',
+      caption: "Midweek lunch sorted. Dan Dan Noodles — spicy, nutty, deeply satisfying. $13 and it hits every time. 🌶️",
+      hashtags: ['#dandannoodles', '#lunchnyc', '#chinesenoodles', '#nycfood', '#mamaliu'],
+      heroDish: 'Spicy Dan Dan Noodles',
+      targetSegment: 'Office lunch crowd in the neighborhood',
+      cta: 'Walk-ins welcome. See you at noon.',
+    },
+    {
+      date: 'Day 4 — Thursday',
+      channel: 'email',
+      contentType: 'Email Blast',
+      caption: "Thursday special: Scallion Pancake + any noodle bowl for $18. This weekend only — reply to claim your table.",
+      hashtags: [],
+      heroDish: 'Scallion Pancake + Noodle Bowl',
+      targetSegment: 'Email subscribers and regulars',
+      cta: 'Reply "TABLE" to reserve your spot this weekend.',
+    },
+    {
+      date: 'Day 5 — Friday',
+      channel: 'tiktok',
+      contentType: 'Short Video',
+      caption: "GRWM: Friday night edition. First stop — Mama Liu's. The chili oil wonton situation is unreal. 🫦",
+      hashtags: ['#fridaynight', '#nycdate', '#foodtok', '#wontons', '#nycfoodie'],
+      heroDish: 'Pork Wontons in Chili Oil',
+      targetSegment: 'Date night couples and friend groups',
+      cta: "It's Friday. You deserve this. Link in bio for directions.",
+    },
+    {
+      date: 'Day 6 — Saturday',
+      channel: 'instagram',
+      contentType: 'Story',
+      caption: 'Saturday lunch = hand-pulled noodle soup and nowhere to be. This is the vibe. 🍜☁️',
+      hashtags: ['#saturdaylunch', '#soupseason', '#nycfood', '#noodlesoup'],
+      heroDish: 'Hand-pulled Beef Noodle Soup',
+      targetSegment: 'Weekend families and casual diners',
+      cta: 'Open 11am–9pm today. No reservations needed.',
+    },
+    {
+      date: 'Day 7 — Sunday',
+      channel: 'instagram',
+      contentType: 'Carousel',
+      caption: "7 dishes. 1 week. Here's everything we made with you in mind. Swipe to see your next order. ➡️",
+      hashtags: ['#sundayfood', '#menuguide', '#nycchinesefood', '#mamaliu', '#weekendeats'],
+      heroDish: 'Full menu showcase',
+      targetSegment: 'New followers and undecided diners',
+      cta: 'Which one are you ordering first? Drop it below 👇',
     },
   ],
   short_video_scripts: [

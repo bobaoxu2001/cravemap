@@ -29,7 +29,13 @@ const MODULES: ModuleItem[] = [
     ready: true,
     href: '/studio/analysis',
   },
-  { icon: '📣', title: 'Campaign Generator', status: 'Ready after analysis', ready: false },
+  {
+    icon: '📣',
+    title: 'Campaign Generator',
+    status: '7-day campaign from your menu',
+    ready: true,
+    href: '/studio/campaign',
+  },
   { icon: '📈', title: 'Review Intelligence', status: 'Ready after analysis', ready: false },
   { icon: '🤖', title: 'Agent Logs', status: 'No runs yet', ready: false },
 ];

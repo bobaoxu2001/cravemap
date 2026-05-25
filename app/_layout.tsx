@@ -15,6 +15,7 @@ export default function RootLayout() {
           <Stack.Screen name="studio/onboarding" />
           <Stack.Screen name="studio/dashboard" />
           <Stack.Screen name="studio/analysis" />
+          <Stack.Screen name="studio/campaign" />
           <Stack.Screen name="onboarding/welcome" />
           <Stack.Screen name="onboarding/taste-passport" />
           <Stack.Screen name="(tabs)" />
