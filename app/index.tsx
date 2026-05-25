@@ -27,5 +27,5 @@ export default function Index() {
     return <Redirect href="/(tabs)/home" />;
   }
 
-  return <Redirect href="/onboarding/welcome" />;
+  return <Redirect href="/role-select" />;
 }

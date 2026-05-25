@@ -10,6 +10,8 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
+          <Stack.Screen name="role-select" />
+          <Stack.Screen name="studio/index" />
           <Stack.Screen name="onboarding/welcome" />
           <Stack.Screen name="onboarding/taste-passport" />
           <Stack.Screen name="(tabs)" />
