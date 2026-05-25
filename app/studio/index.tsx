@@ -95,8 +95,12 @@ export default function StudioHome() {
             CraveMap Studio is launching to a small group of restaurants first.
             Join the waitlist and we'll reach out personally.
           </Text>
-          <TouchableOpacity style={styles.ctaButton} activeOpacity={0.85}>
-            <Text style={styles.ctaButtonText}>Join the Waitlist</Text>
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={() => router.push('/studio/onboarding')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.ctaButtonText}>Get Started — It's Free</Text>
             <Ionicons name="arrow-forward" size={16} color="#fff" />
           </TouchableOpacity>
         </View>
