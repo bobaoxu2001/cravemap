@@ -255,7 +255,7 @@ export default function TastePassport() {
           <Text style={styles.resultPersonaEmoji}>{persona.emoji}</Text>
           <Text style={styles.resultPersona}>{persona.name}</Text>
           <Text style={styles.resultSubtitle}>Your CraveMap feed is now personalized. We matched you with restaurants that{' '}
-            <Text style={{ fontWeight: '700' }}>247 other {persona.name}s</Text> love in your city.
+            <Text style={{ fontWeight: '700' }}>other {persona.name}s</Text> love in your city.
           </Text>
           <View style={styles.resultHighlights}>
             {[

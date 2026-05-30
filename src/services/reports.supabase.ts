@@ -23,8 +23,9 @@ export async function reportCheckIn(
   if (error) {
     throw new Error(error.message || 'Could not submit report.');
   }
-  const result = data as { success: boolean; error?: string } | null;
-  if (result && !result.success) {
-    throw new Error(result.error ?? 'Could not submit report.');
+  // Fail closed: a null/malformed RPC payload must not be treated as success.
+  const result = data as { success?: boolean; error?: string } | null;
+  if (!result || result.success !== true) {
+    throw new Error(result?.error ?? 'Could not submit report.');
   }
 }
