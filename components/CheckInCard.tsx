@@ -101,10 +101,21 @@ export default function CheckInCard({
       </View>
 
       {checkIn.orderedItems && checkIn.orderedItems.length > 0 && (
-        <Text style={styles.orderedLine} numberOfLines={2}>
-          <Text style={styles.orderedPrefix}>Ordered: </Text>
-          {checkIn.orderedItems.join(', ')}
-        </Text>
+        <View style={styles.orderedSection}>
+          <Text style={styles.orderedLabel}>Ordered</Text>
+          <View style={styles.orderedPills}>
+            {checkIn.orderedItems.slice(0, 3).map((item) => (
+              <View key={item} style={styles.orderedPill}>
+                <Text style={styles.orderedPillText} numberOfLines={1}>{item}</Text>
+              </View>
+            ))}
+            {checkIn.orderedItems.length > 3 && (
+              <View style={styles.orderedPill}>
+                <Text style={styles.orderedPillText}>+{checkIn.orderedItems.length - 3} more</Text>
+              </View>
+            )}
+          </View>
+        </View>
       )}
 
       <View style={styles.tagsRow}>
@@ -381,14 +392,33 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontWeight: '700',
   },
-  orderedLine: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-    lineHeight: 17,
+  orderedSection: {
+    marginTop: 6,
   },
-  orderedPrefix: {
+  orderedLabel: {
+    fontSize: 10,
     fontWeight: '700',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  orderedPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  orderedPill: {
+    backgroundColor: Colors.warmBackground,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  orderedPillText: {
+    fontSize: 11,
     color: Colors.text,
+    fontWeight: '500',
   },
 });

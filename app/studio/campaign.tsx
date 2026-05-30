@@ -25,6 +25,7 @@ import type {
   RecommendationCard,
   VideoScript,
 } from '../../src/services/studio/campaignGeneration';
+import { friendlyGeminiMessage } from '../../src/services/studio/gemini';
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,8 @@ export default function StudioCampaign() {
       if (err instanceof StudioNoAnalysisError) {
         setErrorMsg('Run your AI menu analysis first — the campaign generator needs those insights.');
       } else {
-        setErrorMsg(err instanceof Error ? err.message : 'Campaign generation failed.');
+        // Clean message — err.message embeds raw Gemini API bodies.
+        setErrorMsg(friendlyGeminiMessage(err));
       }
       setStage('error');
     }

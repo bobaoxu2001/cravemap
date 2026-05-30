@@ -9,6 +9,8 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
+  Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +18,8 @@ import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme
 import { FoundingScoutProgress, RewardTask } from '../../src/services/types';
 import { getFoundingScoutProgress, getRewardTasks } from '../../src/services/rewards';
 import { getTastePersona } from '../../src/services/profile';
+import { createInvite } from '../../src/services/invites';
+import { getInviteShareUrl } from '../../src/lib/links';
 import { useAuth } from '../../src/hooks/useAuth';
 import ProgressBar from '../../components/ProgressBar';
 import AnimatedMascot from '../../components/AnimatedMascot';
@@ -26,9 +30,9 @@ const DEMO_USER_ID = 'u001';
 
 const TASK_LABELS: Record<RewardTask['key'], { done: string; pending: string }> = {
   tastePassport: { done: 'Done!', pending: 'Complete your taste profile' },
-  threeCheckIns: { done: '3/3 posted', pending: '1/3 posted' },
-  verifiedCheckIn: { done: 'Verified!', pending: 'Not yet' },
-  twoInvites: { done: '2/2 invited', pending: '0/2 invited' },
+  threeCheckIns: { done: '3 check-ins posted!', pending: 'Post 3 check-ins' },
+  verifiedCheckIn: { done: 'Verified!', pending: 'Check in at the restaurant' },
+  twoInvites: { done: '2 friends invited!', pending: 'Invite 2 friends' },
 };
 
 const rewards: {
@@ -89,6 +93,33 @@ export default function Rewards() {
   const [tasks, setTasks] = useState<RewardTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [inviting, setInviting] = useState(false);
+
+  const handleInvite = async () => {
+    if (isSupabaseMode && !userId) {
+      Alert.alert('Sign in required', 'Create an account to invite friends.');
+      return;
+    }
+    setInviting(true);
+    try {
+      const invite = await createInvite();
+      const inviteUrl = getInviteShareUrl(invite.code);
+      try {
+        await Share.share({
+          message: `Join me on CraveMap — find restaurants real locals go to.\n\nUse my invite link: ${inviteUrl}\n\nOr enter code manually: ${invite.code}`,
+          title: 'Join CraveMap',
+          url: inviteUrl,
+        });
+      } catch {
+        Alert.alert('Your invite code', invite.code, [{ text: 'OK' }]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not create invite. Please try again.';
+      Alert.alert('Invite error', message);
+    } finally {
+      setInviting(false);
+    }
+  };
 
   const loadRewards = useCallback(() => {
     if (isSupabaseMode && !userId) {
@@ -281,9 +312,11 @@ export default function Rewards() {
           <TouchableOpacity
             style={styles.secondaryCta}
             activeOpacity={0.7}
+            onPress={() => { void handleInvite(); }}
+            disabled={inviting}
           >
             <Ionicons name="people-outline" size={18} color={Colors.primary} />
-            <Text style={styles.secondaryCtaText}>Invite Friends</Text>
+            <Text style={styles.secondaryCtaText}>{inviting ? 'Creating invite…' : 'Invite Friends'}</Text>
           </TouchableOpacity>
         </View>
 

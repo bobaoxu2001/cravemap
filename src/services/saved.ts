@@ -4,14 +4,18 @@ import { USE_SUPABASE } from './config';
 import * as mock from './saved.mock';
 import * as supabase from './saved.supabase';
 
-async function withMockFallback<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+// On a transient Supabase read failure for an authenticated user we degrade to
+// an empty result, NOT the mock/demo user's saved list — showing the demo
+// user's saved restaurants as "yours" is a correctness bug. Mock data is only
+// used in explicit demo mode (`!USE_SUPABASE`).
+async function withEmptyFallback<T>(request: () => Promise<T>, empty: T, label: string): Promise<T> {
   try {
     return await request();
   } catch (error) {
     if (__DEV__) {
-      console.warn('[CraveMap] Supabase saved request failed. Falling back to mock data.', error);
+      console.warn(`[CraveMap] Supabase ${label} read failed; returning empty.`, error);
     }
-    return fallback();
+    return empty;
   }
 }
 
@@ -19,9 +23,10 @@ export function getSavedRestaurants(userId: string): Promise<Restaurant[]> {
   if (!USE_SUPABASE) {
     return mock.getSavedRestaurants(userId);
   }
-  return withMockFallback(
+  return withEmptyFallback(
     () => supabase.getSavedRestaurants(userId),
-    () => mock.getSavedRestaurants(userId)
+    [],
+    'saved restaurants'
   );
 }
 
@@ -29,9 +34,10 @@ export function isRestaurantSaved(userId: string, restaurantId: string): Promise
   if (!USE_SUPABASE) {
     return mock.isRestaurantSaved(userId, restaurantId);
   }
-  return withMockFallback(
+  return withEmptyFallback(
     () => supabase.isRestaurantSaved(userId, restaurantId),
-    () => mock.isRestaurantSaved(userId, restaurantId)
+    false,
+    'saved status'
   );
 }
 

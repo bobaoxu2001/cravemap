@@ -20,6 +20,19 @@
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const DEFAULT_MODEL = 'gemini-2.0-flash';
 
+// A stalled connection must not hang the Studio UI indefinitely (it promises
+// results "in under 30 seconds"). Abort and surface a network error instead.
+const REQUEST_TIMEOUT_MS = 45_000;
+// Gemini flash routinely returns 429 (rate limit) / 503 (overloaded). Retry a
+// couple of times with backoff before giving up so a transient blip doesn't
+// force the user to manually re-run.
+const MAX_RETRIES = 2;
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export type GeminiProvider = 'google';
 
 // ── Public types ─────────────────────────────────────────────────────────────
@@ -86,18 +99,7 @@ export async function callGeminiStructured<T>(
   }
 
   const start = Date.now();
-  let res: Response;
-
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch (cause) {
-    throw new GeminiNetworkError('Network request to Gemini failed.', cause);
-  }
-
+  const res = await fetchWithRetry(url, body);
   const latency_ms = Date.now() - start;
 
   if (!res.ok) {
@@ -116,10 +118,17 @@ export async function callGeminiStructured<T>(
     throw new GeminiBlockedError(raw.promptFeedback.blockReason);
   }
 
+  const finishReason = raw.candidates?.[0]?.finishReason;
   const text = raw.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) {
-    const reason = raw.candidates?.[0]?.finishReason ?? 'unknown';
-    throw new GeminiApiError(0, `Empty response from Gemini (finishReason: ${reason}).`);
+    throw new GeminiApiError(0, `Empty response from Gemini (finishReason: ${finishReason ?? 'unknown'}).`);
+  }
+
+  // A response truncated at the token limit can still be valid-looking JSON
+  // (e.g. a 7-day calendar that came back with 4 days), which would parse fine
+  // and be silently trusted. Treat truncation/safety stops as errors.
+  if (finishReason === 'MAX_TOKENS' || finishReason === 'SAFETY' || finishReason === 'RECITATION') {
+    throw new GeminiApiError(0, `Gemini response was incomplete (finishReason: ${finishReason}).`);
   }
 
   let data: T;
@@ -130,6 +139,81 @@ export async function callGeminiStructured<T>(
   }
 
   return { data, model_used: model, provider: 'google', latency_ms };
+}
+
+// ── Fetch with timeout + retry ───────────────────────────────────────────────
+
+/**
+ * POST to Gemini with a per-attempt timeout and bounded retries on transient
+ * failures (network errors and 429/5xx). Non-retryable HTTP errors (e.g. 400,
+ * 403) are returned as-is for the caller to surface. Throws GeminiNetworkError
+ * only after exhausting retries.
+ */
+async function fetchWithRetry(url: string, body: GeminiRequestBody): Promise<Response> {
+  let lastCause: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      // Retry transient server statuses; return everything else immediately.
+      if (RETRYABLE_STATUS.has(res.status) && attempt < MAX_RETRIES) {
+        lastCause = new GeminiApiError(res.status, 'transient');
+        await sleep(1000 * 2 ** attempt); // 1s, 2s
+        continue;
+      }
+      return res;
+    } catch (cause) {
+      // Includes AbortError (timeout) and network failures.
+      lastCause = cause;
+      if (attempt < MAX_RETRIES) {
+        await sleep(1000 * 2 ** attempt);
+        continue;
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw new GeminiNetworkError('Network request to Gemini failed after retries.', lastCause);
+}
+
+// ── User-facing error mapping ─────────────────────────────────────────────────
+
+/**
+ * Map a Studio/Gemini error to a clean, user-facing message. The raw error
+ * messages embed API response bodies and internal prefixes that shouldn't be
+ * shown to a merchant — use this anywhere an error reaches the UI.
+ */
+export function friendlyGeminiMessage(err: unknown): string {
+  if (err instanceof GeminiConfigError) {
+    return 'AI features are not configured yet. Add your API key to enable them.';
+  }
+  if (err instanceof GeminiNetworkError) {
+    return 'Couldn’t reach the AI service. Check your connection and try again.';
+  }
+  if (err instanceof GeminiBlockedError) {
+    return 'The request was blocked by the AI safety filter. Try rephrasing your input.';
+  }
+  if (err instanceof GeminiParseError) {
+    return 'The AI returned an unexpected response. Please try again.';
+  }
+  if (err instanceof GeminiApiError) {
+    if (err.statusCode === 429) {
+      return 'The AI service is busy right now. Please try again in a moment.';
+    }
+    if (err.statusCode >= 500) {
+      return 'The AI service had a temporary problem. Please try again.';
+    }
+    return 'The AI request failed. Please try again.';
+  }
+  return 'Something went wrong. Please try again.';
 }
 
 // ── Error classes ─────────────────────────────────────────────────────────────

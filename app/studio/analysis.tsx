@@ -25,6 +25,7 @@ import type {
   RiskNote,
   TopDish,
 } from '../../src/services/studio/menuAnalysis';
+import { friendlyGeminiMessage } from '../../src/services/studio/gemini';
 
 const STUDIO_BLUE = '#3A3AFF';
 const STUDIO_DARK = '#0E0E2A';
@@ -83,7 +84,9 @@ export default function StudioAnalysis() {
       } else if (err instanceof StudioNoMenuSourceError) {
         setErrorMsg('Submit your menu via onboarding before running an analysis.');
       } else {
-        setErrorMsg(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
+        // Map Gemini/network errors to a clean message — err.message embeds raw
+        // API response bodies that shouldn't be shown to a merchant.
+        setErrorMsg(friendlyGeminiMessage(err));
       }
       setStage('error');
     }

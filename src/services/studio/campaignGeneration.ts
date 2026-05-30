@@ -177,6 +177,33 @@ All output must be valid JSON matching the requested schema exactly.`;
 
 // ── Function ──────────────────────────────────────────────────────────────────
 
+// Coerce a possibly-partial model response into a guaranteed-safe shape so the
+// campaign screen (which maps over content_calendar, scenes, captions, etc.)
+// can never crash on a missing array. Gemini's responseSchema is best-effort.
+const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const asString = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
+
+export function normalizeCampaignOutput(raw: Partial<CampaignOutput> | null | undefined): CampaignOutput {
+  const r = raw ?? {};
+  return {
+    campaign_title: asString(r.campaign_title, 'Untitled Campaign'),
+    campaign_goal: asString(r.campaign_goal),
+    content_calendar: asArray<ContentCalendarItem>(r.content_calendar).map((item) => ({
+      ...item,
+      hashtags: asArray<string>(item?.hashtags),
+    })),
+    short_video_scripts: asArray<VideoScript>(r.short_video_scripts).map((s) => ({
+      ...s,
+      scenes: asArray<VideoScript['scenes'][number]>(s?.scenes),
+    })),
+    instagram_captions: asArray<InstagramCaption>(r.instagram_captions).map((c) => ({
+      ...c,
+      hashtags: asArray<string>(c?.hashtags),
+    })),
+    recommendation_cards: asArray<RecommendationCard>(r.recommendation_cards),
+  };
+}
+
 export async function generateRestaurantCampaign(
   input: CampaignInput,
 ): Promise<CampaignResult> {
@@ -226,12 +253,14 @@ Generate a focused 7-day local restaurant marketing campaign. Requirements:
 
 Local and genuine voice. No corporate-speak. Write like a food-obsessed local would.`;
 
-  return callGeminiStructured<CampaignOutput>({
+  const result = await callGeminiStructured<CampaignOutput>({
     systemInstruction: SYSTEM_INSTRUCTION,
     userPrompt,
     responseSchema: CAMPAIGN_SCHEMA,
     temperature: 0.7,
   });
+
+  return { ...result, data: normalizeCampaignOutput(result.data) };
 }
 
 // ── Example (for tests / documentation) ──────────────────────────────────────

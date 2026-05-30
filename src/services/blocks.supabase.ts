@@ -14,9 +14,10 @@ export async function blockUser(blockedUserId: string): Promise<void> {
   if (error) {
     throw new Error(error.message || 'Could not block user.');
   }
-  const result = data as { success: boolean; error?: string } | null;
-  if (result && !result.success) {
-    throw new Error(result.error ?? 'Could not block user.');
+  // Fail closed: a null/malformed RPC payload must not be treated as success.
+  const result = data as { success?: boolean; error?: string } | null;
+  if (!result || result.success !== true) {
+    throw new Error(result?.error ?? 'Could not block user.');
   }
 }
 

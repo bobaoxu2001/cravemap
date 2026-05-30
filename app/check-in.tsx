@@ -19,8 +19,9 @@ import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { Restaurant } from '../types';
 import { getAllRestaurants } from '../src/services/restaurants';
 import { createCheckIn } from '../src/services/checkIns';
-import { getTastePersona } from '../src/services/profile';
+import { getTastePersona, getCurrentProfile } from '../src/services/profile';
 import { useAuth } from '../src/hooks/useAuth';
+import { getPetStats, getXPForCheckIn, PetStats } from '../src/services/petSystem';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
 import AnimatedMascot from '../components/AnimatedMascot';
@@ -90,6 +91,9 @@ export default function CheckIn() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitWarning, setSubmitWarning] = useState('');
+  const [xpEarned, setXpEarned] = useState(50);
+  const [petStatsBefore, setPetStatsBefore] = useState<PetStats | null>(null);
+  const [petStatsAfter, setPetStatsAfter] = useState<PetStats | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
 
@@ -227,6 +231,16 @@ export default function CheckIn() {
       if (result.warning) {
         setSubmitWarning(result.warning);
       }
+      // Capture pet state before/after for the level-up display
+      const profileBefore = await getCurrentProfile();
+      if (profileBefore) {
+        setPetStatsBefore(getPetStats(profileBefore));
+        const earned = getXPForCheckIn(locationStatus === 'verified');
+        setXpEarned(earned);
+        // Simulate post-check-in profile (increment check-in count)
+        const profileAfter = { ...profileBefore, checkInCount: profileBefore.checkInCount + 1 };
+        setPetStatsAfter(getPetStats(profileAfter));
+      }
       setShowSuccess(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Check-in failed. Please try again.';
@@ -350,7 +364,7 @@ export default function CheckIn() {
                   </View>
                 ) : locationStatus === 'verified' ? (
                   <View style={styles.locationVerifiedPill}>
-                    <Text style={styles.locationVerifiedText}>✓ Location verified</Text>
+                    <Text style={styles.locationVerifiedText}>✓ Verified +150 XP</Text>
                   </View>
                 ) : null}
               </View>
@@ -383,7 +397,9 @@ export default function CheckIn() {
             {photoError ? <Text style={styles.photoErrorText}>{photoError}</Text> : null}
 
             {/* Hype rating — required */}
-            <Text style={styles.inputLabel}>Was it worth it?</Text>
+            <Text style={styles.inputLabel}>
+              Was it worth it? <Text style={styles.requiredAsterisk}>*</Text>
+            </Text>
             <View style={styles.hypeOptions}>
               {hypeOptions.map((opt) => (
                 <TouchableOpacity
@@ -399,6 +415,9 @@ export default function CheckIn() {
                 </TouchableOpacity>
               ))}
             </View>
+            {!hypeRating && (
+              <Text style={styles.requiredHint}>Required to post</Text>
+            )}
 
             {/* Taste tags — optional */}
             <Text style={styles.inputLabel}>
@@ -458,9 +477,36 @@ export default function CheckIn() {
                 <Text style={styles.warningBannerText}>{submitWarning}</Text>
               </View>
             ) : null}
-            {locationStatus === 'verified' && (
-              <View style={styles.verifiedPill}>
-                <Text style={styles.verifiedPillText}>✓ Location verified</Text>
+            {/* XP earned */}
+            <View style={styles.xpRow}>
+              <View style={styles.xpBadge}>
+                <Text style={styles.xpBadgeText}>+{xpEarned} XP</Text>
+              </View>
+              {locationStatus === 'verified' && (
+                <View style={[styles.xpBadge, styles.xpBadgeBonus]}>
+                  <Text style={[styles.xpBadgeText, { color: Colors.green }]}>✓ Verified bonus</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Level-up banner */}
+            {petStatsBefore && petStatsAfter && petStatsAfter.level > petStatsBefore.level && (
+              <View style={styles.levelUpBanner}>
+                <Text style={styles.levelUpText}>
+                  🎉 Level Up! {petStatsAfter.emoji} {petStatsAfter.titleZh} reached!
+                </Text>
+              </View>
+            )}
+
+            {/* Pet progress bar */}
+            {petStatsAfter && !petStatsAfter.isMaxLevel && (
+              <View style={styles.petProgressRow}>
+                <Text style={styles.petProgressLabel}>
+                  {petStatsAfter.emoji} {petStatsAfter.titleZh} · {petStatsAfter.totalXP} XP
+                </Text>
+                <Text style={styles.petProgressHint}>
+                  {petStatsAfter.xpToNextLevel} XP to {petStatsAfter.nextLevel?.titleZh}
+                </Text>
               </View>
             )}
             <TouchableOpacity
@@ -901,8 +947,14 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  verifiedPill: {
-    alignSelf: 'center',
+  xpRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  xpBadge: {
     backgroundColor: '#F0FBF5',
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
@@ -910,11 +962,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.green + '40',
   },
-  verifiedPillText: {
+  xpBadgeBonus: {
+    backgroundColor: '#FFF4E6',
+    borderColor: Colors.accent + '40',
+  },
+  xpBadgeText: {
     ...Typography.label,
     color: Colors.green,
     fontWeight: '700',
     fontSize: 14,
+  },
+  levelUpBanner: {
+    backgroundColor: '#FFF4E6',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.accent + '60',
+    alignItems: 'center',
+  },
+  levelUpText: {
+    ...Typography.label,
+    color: Colors.text,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  petProgressRow: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  petProgressLabel: {
+    ...Typography.label,
+    color: Colors.text,
+    fontWeight: '600',
+  },
+  petProgressHint: {
+    ...Typography.caption,
+    color: Colors.textMuted,
   },
   warningBanner: {
     flexDirection: 'row',
@@ -1052,6 +1136,17 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontWeight: '400',
     fontSize: 12,
+  },
+  requiredAsterisk: {
+    color: Colors.error,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  requiredHint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 4,
+    marginBottom: 4,
   },
   restaurantSearchBar: {
     flexDirection: 'row',

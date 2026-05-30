@@ -4,14 +4,18 @@ import { USE_SUPABASE } from './config';
 import * as mock from './invites.mock';
 import * as supabase from './invites.supabase';
 
-async function withMockFallback<T>(request: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+// On a transient Supabase read failure for an authenticated user we degrade to
+// an empty result, NOT the mock/demo user's invites — showing the demo user's
+// invite stats as "yours" is a correctness bug. Mock data is only used in
+// explicit demo mode (`!USE_SUPABASE`).
+async function withEmptyFallback<T>(request: () => Promise<T>, empty: T, label: string): Promise<T> {
   try {
     return await request();
   } catch (error) {
     if (__DEV__) {
-      console.warn('[CraveMap] Supabase invites request failed. Falling back to mock data.', error);
+      console.warn(`[CraveMap] Supabase ${label} read failed; returning empty.`, error);
     }
-    return fallback();
+    return empty;
   }
 }
 
@@ -27,9 +31,10 @@ export function getInviteStats(userId: string): Promise<InviteStats> {
   if (!USE_SUPABASE) {
     return mock.getInviteStats(userId);
   }
-  return withMockFallback(
+  return withEmptyFallback(
     () => supabase.getInviteStats(userId),
-    () => mock.getInviteStats(userId)
+    { totalInvites: 0, acceptedInvites: 0 },
+    'invite stats'
   );
 }
 
@@ -37,9 +42,10 @@ export function getMyInvites(userId: string): Promise<Invite[]> {
   if (!USE_SUPABASE) {
     return mock.getMyInvites(userId);
   }
-  return withMockFallback(
+  return withEmptyFallback(
     () => supabase.getMyInvites(userId),
-    () => mock.getMyInvites(userId)
+    [],
+    'my invites'
   );
 }
 
