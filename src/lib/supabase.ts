@@ -7,6 +7,9 @@ import { Platform } from 'react-native';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+/** Base URL of the Supabase project, used to build Edge Function URLs. */
+export const getSupabaseUrl = (): string | undefined => supabaseUrl;
+
 export const isSupabaseConfigured = (): boolean => {
   return Boolean(supabaseUrl && supabaseAnonKey);
 };
