@@ -21,6 +21,7 @@ import { getSavedRestaurants, unsaveRestaurant } from '../../src/services/saved'
 import { useAuth } from '../../src/hooks/useAuth';
 import { applyTastePassport } from '../../src/lib/recommendations';
 import TasteMatchBadge from '../../components/TasteMatchBadge';
+import { SavedSkeleton } from '../../components/SkeletonLoader';
 
 const DEMO_USER_ID = 'u001';
 
@@ -64,7 +65,7 @@ export default function Saved() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+        <SavedSkeleton />
       </SafeAreaView>
     );
   }

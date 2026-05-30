@@ -11,6 +11,7 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import { createCheckIn } from '../src/services/checkIns';
 import { getTastePersona, getCurrentProfile } from '../src/services/profile';
 import { useAuth } from '../src/hooks/useAuth';
 import { getPetStats, getXPForCheckIn, PetStats } from '../src/services/petSystem';
+import { getRestaurantShareUrl } from '../src/lib/links';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
 import AnimatedMascot from '../components/AnimatedMascot';
@@ -564,6 +566,23 @@ export default function CheckIn() {
                 </Text>
               </View>
             )}
+            {selectedRestaurant && (
+              <TouchableOpacity
+                style={styles.shareCheckInBtn}
+                onPress={() => {
+                  const url = getRestaurantShareUrl(selectedRestaurant.id);
+                  void Share.share({
+                    message: `Just checked in at ${selectedRestaurant.name} — ${selectedRestaurant.cuisine} in ${selectedRestaurant.neighborhood}. ${hypeRating === 'worth_it' ? 'Worth it! ✅' : hypeRating === 'overhyped' ? 'Overhyped. 🚫' : 'Not sure. 🤔'}\n\nFind it on CraveMap: ${url}`,
+                    title: selectedRestaurant.name,
+                    url,
+                  }).catch(() => {});
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="share-outline" size={18} color={Colors.primary} />
+                <Text style={styles.shareCheckInText}>Share my check-in</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.successBtn}
               onPress={() => {
@@ -1071,6 +1090,22 @@ const styles = StyleSheet.create({
     color: Colors.text,
     flex: 1,
     lineHeight: 18,
+  },
+  shareCheckInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  shareCheckInText: {
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
   },
   successBtn: {
     backgroundColor: Colors.primary,

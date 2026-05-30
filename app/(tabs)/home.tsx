@@ -27,11 +27,13 @@ import {
   getPrimaryOrder,
 } from '../../src/lib/recommendations';
 import { getNotifications } from '../../src/services/notifications';
+import { recordVisit, streakLabel } from '../../src/lib/streak';
 import { useAuth } from '../../src/hooks/useAuth';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
 import RestaurantCard from '../../components/RestaurantCard';
 import VoiceMic from '../../components/VoiceMic';
+import { HomeSkeleton } from '../../components/SkeletonLoader';
 
 const CITIES = ['New York City', 'Los Angeles', 'Bay Area', 'Seattle', 'Boston'];
 
@@ -107,6 +109,7 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [recentCheckIns, setRecentCheckIns] = useState<CheckIn[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [streak, setStreak] = useState(0);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounce search input: only filter after 250ms idle so each keystroke
@@ -139,7 +142,10 @@ export default function Home() {
     });
   }, [userId]);
 
-  useEffect(() => { void loadData(); }, [loadData]);
+  useEffect(() => {
+    void loadData();
+    void recordVisit().then(setStreak);
+  }, [loadData]);
 
   useFocusEffect(useCallback(() => {
     // Silent refresh on tab focus — don't show spinner, just update in bg.
@@ -154,7 +160,7 @@ export default function Home() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+        <HomeSkeleton />
       </SafeAreaView>
     );
   }
@@ -198,6 +204,9 @@ export default function Home() {
             <Text style={styles.greetingEmoji}>{getGreetingEmoji()}</Text>
             <Text style={styles.greeting}>{getGreeting()}, {firstName}</Text>
           </View>
+          {streakLabel(streak) ? (
+            <Text style={styles.streakLabel}>{streakLabel(streak)}</Text>
+          ) : null}
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -545,6 +554,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.text,
     letterSpacing: -0.3,
+  },
+  streakLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.accent,
+    marginTop: 2,
+    letterSpacing: 0.2,
   },
   headerRight: {
     flexDirection: 'row',
