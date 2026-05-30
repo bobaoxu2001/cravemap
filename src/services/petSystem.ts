@@ -84,51 +84,56 @@ export const PET_LEVELS: PetLevelDef[] = [
 // ─── XP Calculation ───────────────────────────────────────────────────────────
 
 export function calculateTotalXP(profile: UserProfile): number {
+  // Defensive: an older/partial AsyncStorage payload may lack
+  // foundingScoutProgress, and dereferencing it directly crashes the pet screen.
+  const fsp = profile.foundingScoutProgress;
   let xp = 0;
-  xp += profile.checkInCount * 50;
-  if (profile.foundingScoutProgress.tastePassport) xp += 200;
-  if (profile.foundingScoutProgress.threeCheckIns) xp += 75;
-  if (profile.foundingScoutProgress.verifiedCheckIn) xp += 150;
-  if (profile.foundingScoutProgress.twoInvites) xp += 150;
+  xp += (profile.checkInCount ?? 0) * 50;
+  if (fsp?.tastePassport) xp += 200;
+  if (fsp?.threeCheckIns) xp += 75;
+  if (fsp?.verifiedCheckIn) xp += 150;
+  if (fsp?.twoInvites) xp += 150;
   return xp;
 }
 
 export function getXPSources(profile: UserProfile): XPSource[] {
+  const fsp = profile.foundingScoutProgress;
+  const checkInCount = profile.checkInCount ?? 0;
   return [
     {
       label: 'Check-ins',
       labelZh: '打卡',
       xpPerAction: 50,
-      totalXP: profile.checkInCount * 50,
-      earned: profile.checkInCount > 0,
+      totalXP: checkInCount * 50,
+      earned: checkInCount > 0,
     },
     {
       label: 'Taste Passport',
       labelZh: '口味护照',
       xpPerAction: 200,
       totalXP: 200,
-      earned: profile.foundingScoutProgress.tastePassport,
+      earned: !!fsp?.tastePassport,
     },
     {
       label: '3 Check-ins',
       labelZh: '三次打卡',
       xpPerAction: 75,
       totalXP: 75,
-      earned: profile.foundingScoutProgress.threeCheckIns,
+      earned: !!fsp?.threeCheckIns,
     },
     {
       label: 'Verified visit',
       labelZh: '认证到访',
       xpPerAction: 150,
       totalXP: 150,
-      earned: profile.foundingScoutProgress.verifiedCheckIn,
+      earned: !!fsp?.verifiedCheckIn,
     },
     {
       label: '2 Invites',
       labelZh: '邀请好友',
       xpPerAction: 150,
       totalXP: 150,
-      earned: profile.foundingScoutProgress.twoInvites,
+      earned: !!fsp?.twoInvites,
     },
   ];
 }

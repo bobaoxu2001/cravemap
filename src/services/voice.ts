@@ -38,7 +38,12 @@ export async function transcribeAudio(uri: string): Promise<string> {
     throw new Error(`Whisper API error: ${res.status}`);
   }
 
-  const json = await res.json() as { text: string };
+  const json = (await res.json()) as { text?: unknown };
+  // Validate the shape before trusting it: a 200 with an unexpected body would
+  // otherwise yield `undefined`, which crashes parseVoiceIntent on .toLowerCase().
+  if (typeof json?.text !== 'string') {
+    throw new Error('Whisper API returned an unexpected response.');
+  }
   return json.text;
 }
 
