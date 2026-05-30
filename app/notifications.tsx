@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,72 +6,97 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
+import { useAuth } from '../src/hooks/useAuth';
+import {
+  getNotifications,
+  timeAgo,
+  AppNotification,
+  NotificationType,
+} from '../src/services/notifications';
 
-interface Notification {
-  id: string;
-  type: string;
-  icon: string;
-  color: string;
-  title: string;
-  body: string;
-  time: string;
-  unread: boolean;
-}
+const DEMO_USER_ID = 'u001';
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: '1', type: 'checkin',   icon: 'camera',           color: Colors.primary, title: "Wei Zhang checked in at Xi'an Famous Foods", body: '"The biangbiang noodles hit different at 2pm" — Worth it ✅', time: '2h ago', unread: true },
-  { id: '2', type: 'xp',        icon: 'star',             color: Colors.accent,  title: "You're 125 XP from Level 4 — Taste Expert 🦊", body: 'Post a verified check-in to get there faster', time: '1d ago', unread: true },
-  { id: '3', type: 'spot',      icon: 'location',         color: Colors.green,   title: 'New hidden gem added in Flushing', body: 'White Bear #6 wontons — no sign, no menu, no English. Just go.', time: '2d ago', unread: false },
-  { id: '4', type: 'helpful',   icon: 'thumbs-up',        color: '#7B9EFF',      title: 'Your check-in got 12 helpful votes', body: "People are finding your Xi'an Foods review useful", time: '3d ago', unread: false },
-  { id: '5', type: 'social',    icon: 'people',           color: Colors.accent,  title: 'Jiwon Kim has similar taste to you', body: "89% Taste Match — see what they've been eating", time: '5d ago', unread: false },
-  { id: '6', type: 'weekly',    icon: 'bar-chart',        color: Colors.green,   title: '10 new check-ins this week in NYC', body: "The scout community is shaping the map — see what's new", time: '1w ago', unread: false },
-  { id: '7', type: 'milestone', icon: 'shield-checkmark', color: Colors.primary, title: '3 check-ins milestone unlocked! +75 XP', body: 'Your Dango is growing — keep going to Level 3', time: '2w ago', unread: false },
-  { id: '8', type: 'spot',      icon: 'location',         color: Colors.green,   title: 'New late-night ramen spot scouted in K-Town', body: 'Open until 3am. Locals-only pricing. 94% match for you.', time: '2w ago', unread: false },
-];
+const TYPE_STYLE: Record<NotificationType, { icon: string; color: string }> = {
+  checkin:   { icon: 'camera',     color: Colors.primary },
+  xp:        { icon: 'star',       color: Colors.accent },
+  helpful:   { icon: 'thumbs-up',  color: '#7B9EFF' },
+  community: { icon: 'people',     color: Colors.green },
+};
 
-function NotificationRow({ item, isLast }: { item: Notification; isLast: boolean }) {
+function NotificationRow({
+  item,
+  read,
+  isLast,
+}: {
+  item: AppNotification;
+  read: boolean;
+  isLast: boolean;
+}) {
+  const unread = item.unread && !read;
+  const style = TYPE_STYLE[item.type];
   return (
     <View style={[styles.notifRow, isLast && styles.notifRowLast]}>
       {/* Unread dot */}
       <View style={styles.unreadDotWrap}>
-        {item.unread ? <View style={styles.unreadDot} /> : <View style={styles.unreadDotPlaceholder} />}
+        {unread ? <View style={styles.unreadDot} /> : <View style={styles.unreadDotPlaceholder} />}
       </View>
 
       {/* Icon circle */}
-      <View style={[styles.iconCircle, { backgroundColor: item.color }]}>
-        <Ionicons name={item.icon as any} size={20} color="#fff" />
+      <View style={[styles.iconCircle, { backgroundColor: style.color }]}>
+        <Ionicons name={style.icon as any} size={20} color="#fff" />
       </View>
 
       {/* Content */}
       <View style={styles.notifContent}>
-        <Text style={[styles.notifTitle, item.unread && styles.notifTitleUnread]} numberOfLines={2}>
+        <Text style={[styles.notifTitle, unread && styles.notifTitleUnread]} numberOfLines={2}>
           {item.title}
         </Text>
         <Text style={styles.notifBody} numberOfLines={2}>{item.body}</Text>
       </View>
 
       {/* Time */}
-      <Text style={styles.notifTime}>{item.time}</Text>
+      <Text style={styles.notifTime}>{timeAgo(item.timestamp)}</Text>
     </View>
   );
 }
 
 export default function Notifications() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const { session, isSupabaseMode, profile: authProfile } = useAuth();
+  const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID;
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [allRead, setAllRead] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-  };
+  const load = useCallback(() => {
+    if (isSupabaseMode && !userId) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+    const id = userId ?? DEMO_USER_ID;
+    setLoading(true);
+    setError('');
+    getNotifications(id, authProfile)
+      .then((items) => { setNotifications(items); setAllRead(false); })
+      .catch(() => setError('Could not load your activity. Please try again.'))
+      .finally(() => setLoading(false));
+  }, [userId, isSupabaseMode, authProfile]);
 
-  const newNotifs = notifications.filter((n) => n.unread);
-  const earlierNotifs = notifications.filter((n) => !n.unread);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const unreadCount = allRead ? 0 : notifications.filter((n) => n.unread).length;
+  const markAllRead = () => setAllRead(true);
+
+  const newNotifs = allRead ? [] : notifications.filter((n) => n.unread);
+  const earlierNotifs = allRead ? notifications : notifications.filter((n) => !n.unread);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -99,41 +124,54 @@ export default function Notifications() {
         )}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* New / Unread */}
-        {newNotifs.length > 0 && (
-          <View style={styles.group}>
-            <Text style={styles.groupLabel}>NEW</Text>
-            <View style={styles.groupCard}>
-              {newNotifs.map((item, idx) => (
-                <NotificationRow key={item.id} item={item} isLast={idx === newNotifs.length - 1} />
-              ))}
+      {loading ? (
+        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+      ) : error ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.textMuted} />
+          <Text style={styles.emptyText}>Couldn&apos;t load activity</Text>
+          <Text style={styles.emptySubtext}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={load} activeOpacity={0.85}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* New / Unread */}
+          {newNotifs.length > 0 && (
+            <View style={styles.group}>
+              <Text style={styles.groupLabel}>NEW</Text>
+              <View style={styles.groupCard}>
+                {newNotifs.map((item, idx) => (
+                  <NotificationRow key={item.id} item={item} read={allRead} isLast={idx === newNotifs.length - 1} />
+                ))}
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {/* Earlier / Read */}
-        {earlierNotifs.length > 0 && (
-          <View style={styles.group}>
-            <Text style={styles.groupLabel}>EARLIER</Text>
-            <View style={styles.groupCard}>
-              {earlierNotifs.map((item, idx) => (
-                <NotificationRow key={item.id} item={item} isLast={idx === earlierNotifs.length - 1} />
-              ))}
+          {/* Earlier / Read */}
+          {earlierNotifs.length > 0 && (
+            <View style={styles.group}>
+              <Text style={styles.groupLabel}>EARLIER</Text>
+              <View style={styles.groupCard}>
+                {earlierNotifs.map((item, idx) => (
+                  <NotificationRow key={item.id} item={item} read={allRead} isLast={idx === earlierNotifs.length - 1} />
+                ))}
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {notifications.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No activity yet</Text>
-            <Text style={styles.emptySubtext}>Check back after your first check-in!</Text>
-          </View>
-        )}
+          {notifications.length === 0 && (
+            <View style={styles.emptyState}>
+              <Ionicons name="notifications-off-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No activity yet</Text>
+              <Text style={styles.emptySubtext}>Check back after your first check-in!</Text>
+            </View>
+          )}
 
-        <View style={styles.bottomPad} />
-      </ScrollView>
+          <View style={styles.bottomPad} />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -276,6 +314,19 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.textMuted,
     textAlign: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  retryBtn: {
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  retryBtnText: {
+    ...Typography.label,
+    color: '#fff',
+    fontWeight: '700',
   },
   bottomPad: {
     height: Spacing.xl,

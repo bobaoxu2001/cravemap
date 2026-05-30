@@ -128,11 +128,11 @@ export default function Settings() {
   };
 
   const handlePrivacy = () => {
-    Alert.alert('Privacy Policy', 'Our privacy policy is available at cravemap.app/privacy.', [{ text: 'OK' }]);
+    router.push('/privacy-policy');
   };
 
   const handleTerms = () => {
-    Alert.alert('Terms of Service', 'Our terms of service are available at cravemap.app/terms.', [{ text: 'OK' }]);
+    router.push('/terms');
   };
 
   return (

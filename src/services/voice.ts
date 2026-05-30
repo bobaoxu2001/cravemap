@@ -1,4 +1,6 @@
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import { Restaurant } from '../../types';
+import { getSupabaseClient, getSupabaseUrl } from '../lib/supabase';
 
 export interface VoiceIntent {
   transcript: string;
@@ -12,10 +14,45 @@ export interface VoiceIntent {
 // ─── Transcription ────────────────────────────────────────────────────────────
 
 export async function transcribeAudio(uri: string): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseClient = getSupabaseClient();
 
+  // ── Production path: Edge Function (key never in bundle) ──────────────────
+  if (supabaseUrl && supabaseClient) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      throw new Error('Sign in to use voice search.');
+    }
+
+    // Read the recorded audio as base64 so we can send it as JSON.
+    const audioBase64 = await readAsStringAsync(uri, { encoding: 'base64' });
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/ai-proxy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ type: 'whisper', audioBase64, mimeType: 'audio/m4a' }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Voice transcription failed (${res.status}): ${errBody}`);
+    }
+
+    const json = (await res.json()) as { transcript?: unknown; error?: unknown };
+    if (typeof json?.transcript !== 'string') {
+      throw new Error('Whisper API returned an unexpected response.');
+    }
+    return json.transcript;
+  }
+
+  // ── Dev / demo fallback: direct OpenAI call with EXPO_PUBLIC key ──────────
+  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   if (!apiKey) {
-    // Demo mode — simulate a network delay then return a canned transcript
+    // No key at all — simulate for UI demos.
     await new Promise((r) => setTimeout(r, 800));
     return '我想吃辣的中国菜';
   }
@@ -39,8 +76,6 @@ export async function transcribeAudio(uri: string): Promise<string> {
   }
 
   const json = (await res.json()) as { text?: unknown };
-  // Validate the shape before trusting it: a 200 with an unexpected body would
-  // otherwise yield `undefined`, which crashes parseVoiceIntent on .toLowerCase().
   if (typeof json?.text !== 'string') {
     throw new Error('Whisper API returned an unexpected response.');
   }

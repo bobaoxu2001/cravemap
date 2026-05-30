@@ -349,6 +349,15 @@ export default function TastePassport() {
               {saving ? 'Saving...' : step === TOTAL_STEPS ? 'See My Recommendations 🍽️' : 'Next →'}
             </Text>
           </TouchableOpacity>
+          {!canAdvance() && step === 1 && (
+            <Text style={styles.nudgeText}>Pick your city to continue</Text>
+          )}
+          {!canAdvance() && step === 2 && (
+            <Text style={styles.nudgeText}>Select at least one source you trust</Text>
+          )}
+          {!canAdvance() && step === 3 && (
+            <Text style={styles.nudgeText}>Pick at least one flavor you love</Text>
+          )}
           {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
           {step < TOTAL_STEPS && step >= 4 && (
             <TouchableOpacity onPress={handleNext} style={styles.skipBtn} disabled={saving}>
@@ -615,6 +624,13 @@ const styles = StyleSheet.create({
   skipText: {
     ...Typography.body,
     color: Colors.textMuted,
+  },
+  nudgeText: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
   },
   errorText: {
     ...Typography.caption,

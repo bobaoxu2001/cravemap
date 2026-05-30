@@ -11,17 +11,23 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
+import { distanceMeters, CHECK_IN_RADIUS_M } from '../src/lib/geo';
 import { Restaurant } from '../types';
 import { getAllRestaurants } from '../src/services/restaurants';
 import { createCheckIn } from '../src/services/checkIns';
 import { getTastePersona, getCurrentProfile } from '../src/services/profile';
 import { useAuth } from '../src/hooks/useAuth';
 import { getPetStats, getXPForCheckIn, PetStats } from '../src/services/petSystem';
+import { getFoundingScoutProgress } from '../src/services/rewards';
+import { getRestaurantShareUrl } from '../src/lib/links';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
 import AnimatedMascot from '../components/AnimatedMascot';
@@ -86,7 +92,9 @@ export default function CheckIn() {
   const [selectedDietTags, setSelectedDietTags] = useState<string[]>([]);
   const [selectedSceneTags, setSelectedSceneTags] = useState<string[]>([]);
   const [hypeRating, setHypeRating] = useState<HypeRating | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'verifying' | 'verified'>('idle');
+  const [locationStatus, setLocationStatus] = useState<
+    'idle' | 'verifying' | 'verified' | 'too_far' | 'unavailable'
+  >('idle');
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -96,6 +104,7 @@ export default function CheckIn() {
   const [petStatsAfter, setPetStatsAfter] = useState<PetStats | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
+  const [scoutProgress, setScoutProgress] = useState<{ completedCount: number; totalCount: number } | null>(null);
 
   const [sampleRestaurants, setSampleRestaurants] = useState<Restaurant[]>([]);
   const [restaurantSearch, setRestaurantSearch] = useState('');
@@ -126,20 +135,58 @@ export default function CheckIn() {
     setArr(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);
   };
 
+  // Require at least one meaningful content signal beyond the hype rating, so
+  // the feed stays trustworthy. A lone thumbs-up with no context is nearly
+  // useless to other users. The bar is low (one tag is enough), just not zero.
+  const hasContent =
+    review.trim().length > 0 ||
+    selectedTasteTags.length > 0 ||
+    selectedDietTags.length > 0 ||
+    selectedSceneTags.length > 0 ||
+    photos.length > 0;
+
   const canNext = () => {
     if (submitting) return false;
     if (step === 1) return selectedRestaurant !== null;
-    if (step === 2) return hypeRating !== null;
+    if (step === 2) return hypeRating !== null && hasContent;
     return true;
   };
 
+  // Real location verification: confirm the user is actually near the venue
+  // before awarding the verified bonus. Any failure (services off, permission
+  // denied, GPS error) degrades to an honest "couldn't verify" state — the
+  // check-in still posts, just without the +150 bonus.
   useEffect(() => {
-    if (step === 2) {
-      setLocationStatus('verifying');
-      const timer = setTimeout(() => setLocationStatus('verified'), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [step]);
+    if (step !== 2 || !selectedRestaurant) return;
+    let cancelled = false;
+    setLocationStatus('verifying');
+    (async () => {
+      try {
+        const servicesOn = await Location.hasServicesEnabledAsync();
+        if (!servicesOn) {
+          if (!cancelled) setLocationStatus('unavailable');
+          return;
+        }
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (perm.status !== 'granted') {
+          if (!cancelled) setLocationStatus('unavailable');
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (cancelled) return;
+        const meters = distanceMeters(
+          { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
+          { latitude: selectedRestaurant.latitude, longitude: selectedRestaurant.longitude }
+        );
+        setLocationStatus(meters <= CHECK_IN_RADIUS_M ? 'verified' : 'too_far');
+      } catch {
+        if (!cancelled) setLocationStatus('unavailable');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [step, selectedRestaurant]);
 
   const remainingPhotoSlots = MAX_PHOTOS - photos.length;
 
@@ -241,6 +288,10 @@ export default function CheckIn() {
         const profileAfter = { ...profileBefore, checkInCount: profileBefore.checkInCount + 1 };
         setPetStatsAfter(getPetStats(profileAfter));
       }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void getFoundingScoutProgress(userId ?? DEMO_USER_ID)
+        .then((p) => setScoutProgress({ completedCount: p.completedCount, totalCount: p.totalCount }))
+        .catch(() => {});
       setShowSuccess(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Check-in failed. Please try again.';
@@ -366,8 +417,26 @@ export default function CheckIn() {
                   <View style={styles.locationVerifiedPill}>
                     <Text style={styles.locationVerifiedText}>✓ Verified +150 XP</Text>
                   </View>
+                ) : locationStatus === 'too_far' ? (
+                  <View style={styles.locationUnverifiedPill}>
+                    <Ionicons name="location-outline" size={13} color={Colors.textMuted} />
+                    <Text style={styles.locationUnverifiedText}>Not at venue</Text>
+                  </View>
+                ) : locationStatus === 'unavailable' ? (
+                  <View style={styles.locationUnverifiedPill}>
+                    <Ionicons name="location-outline" size={13} color={Colors.textMuted} />
+                    <Text style={styles.locationUnverifiedText}>Location off</Text>
+                  </View>
                 ) : null}
               </View>
+            )}
+
+            {(locationStatus === 'too_far' || locationStatus === 'unavailable') && (
+              <Text style={styles.locationHint}>
+                {locationStatus === 'too_far'
+                  ? "You're not near this spot, so we can't add the verified bonus — your check-in still counts."
+                  : 'Turn on location to earn the verified bonus — your check-in still counts without it.'}
+              </Text>
             )}
 
             {/* Compact photo row */}
@@ -405,7 +474,10 @@ export default function CheckIn() {
                 <TouchableOpacity
                   key={opt.value}
                   style={[styles.hypeOption, hypeRating === opt.value && styles.hypeOptionSelected]}
-                  onPress={() => setHypeRating(opt.value)}
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setHypeRating(opt.value);
+                  }}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.hypeEmoji}>{opt.emoji}</Text>
@@ -417,6 +489,9 @@ export default function CheckIn() {
             </View>
             {!hypeRating && (
               <Text style={styles.requiredHint}>Required to post</Text>
+            )}
+            {hypeRating && !hasContent && (
+              <Text style={styles.requiredHint}>Add a review, tag, or photo to post</Text>
             )}
 
             {/* Taste tags — optional */}
@@ -508,6 +583,38 @@ export default function CheckIn() {
                   {petStatsAfter.xpToNextLevel} XP to {petStatsAfter.nextLevel?.titleZh}
                 </Text>
               </View>
+            )}
+            {scoutProgress && scoutProgress.completedCount < scoutProgress.totalCount && (
+              <View style={styles.scoutProgressRow}>
+                <Ionicons name="shield-checkmark-outline" size={14} color={Colors.accent} />
+                <Text style={styles.scoutProgressText}>
+                  Founding Scout: {scoutProgress.completedCount}/{scoutProgress.totalCount} tasks done
+                </Text>
+              </View>
+            )}
+            {scoutProgress && scoutProgress.completedCount === scoutProgress.totalCount && (
+              <View style={[styles.scoutProgressRow, { backgroundColor: '#FFF8E1' }]}>
+                <Text style={[styles.scoutProgressText, { color: Colors.accent }]}>
+                  🏅 Founding Food Scout — all tasks complete!
+                </Text>
+              </View>
+            )}
+            {selectedRestaurant && (
+              <TouchableOpacity
+                style={styles.shareCheckInBtn}
+                onPress={() => {
+                  const url = getRestaurantShareUrl(selectedRestaurant.id);
+                  void Share.share({
+                    message: `Just checked in at ${selectedRestaurant.name} — ${selectedRestaurant.cuisine} in ${selectedRestaurant.neighborhood}. ${hypeRating === 'worth_it' ? 'Worth it! ✅' : hypeRating === 'overhyped' ? 'Overhyped. 🚫' : 'Not sure. 🤔'}\n\nFind it on CraveMap: ${url}`,
+                    title: selectedRestaurant.name,
+                    url,
+                  }).catch(() => {});
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="share-outline" size={18} color={Colors.primary} />
+                <Text style={styles.shareCheckInText}>Share my check-in</Text>
+              </TouchableOpacity>
             )}
             <TouchableOpacity
               style={styles.successBtn}
@@ -1017,6 +1124,37 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+  scoutProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginTop: Spacing.sm,
+  },
+  scoutProgressText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  shareCheckInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  shareCheckInText: {
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
   successBtn: {
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.xl,
@@ -1075,6 +1213,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.green,
     fontWeight: '700',
+  },
+  locationUnverifiedPill: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  locationUnverifiedText: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  locationHint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    lineHeight: 16,
+    marginTop: 8,
+    marginBottom: 4,
   },
   locationVerifyingPill: {
     flexDirection: 'row',

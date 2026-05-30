@@ -10,7 +10,9 @@ import {
   SafeAreaView,
   ActivityIndicator,
   TextInput,
+  RefreshControl,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
@@ -19,6 +21,7 @@ import { getSavedRestaurants, unsaveRestaurant } from '../../src/services/saved'
 import { useAuth } from '../../src/hooks/useAuth';
 import { applyTastePassport } from '../../src/lib/recommendations';
 import TasteMatchBadge from '../../components/TasteMatchBadge';
+import { SavedSkeleton } from '../../components/SkeletonLoader';
 
 const DEMO_USER_ID = 'u001';
 
@@ -54,6 +57,7 @@ export default function Saved() {
 
   const handleUnsave = async (id: string) => {
     if (!userId) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await unsaveRestaurant(userId, id);
     setSavedRestaurants((prev) => prev.filter((r) => r.id !== id));
   };
@@ -61,7 +65,7 @@ export default function Saved() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{ flex: 1 }} color={Colors.primary} />
+        <SavedSkeleton />
       </SafeAreaView>
     );
   }
@@ -196,7 +200,17 @@ export default function Saved() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadSaved}
+            tintColor={Colors.primary}
+          />
+        }
+      >
         {displayed.length === 0 && savedSearch.trim() ? (
           <View style={styles.searchEmpty}>
             <Text style={styles.searchEmptyText}>No saved restaurants match "{savedSearch}"</Text>
