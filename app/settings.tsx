@@ -14,6 +14,9 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
+import { createInvite } from '../src/services/invites';
+import { getInviteShareUrl } from '../src/lib/links';
+import { useAuth } from '../src/hooks/useAuth';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -67,19 +70,40 @@ function SettingsRow({
 
 export default function Settings() {
   const router = useRouter();
+  const { session, isSupabaseMode } = useAuth();
+  const userId = isSupabaseMode ? (session?.userId ?? null) : 'u001';
 
   const [pushEnabled, setPushEnabled] = useState(true);
   const [checkInReminders, setCheckInReminders] = useState(false);
   const [friendActivity, setFriendActivity] = useState(true);
   const [newSpotsCity, setNewSpotsCity] = useState(true);
   const [showDietaryFlags, setShowDietaryFlags] = useState(true);
+  const [inviting, setInviting] = useState(false);
 
-  const handleInviteFriends = () => {
-    Alert.alert(
-      'Invite Friends',
-      'Share your invite link to earn Founding Scout progress',
-      [{ text: 'OK' }]
-    );
+  const handleInviteFriends = async () => {
+    if (isSupabaseMode && !userId) {
+      Alert.alert('Sign in required', 'Create an account to invite friends.');
+      return;
+    }
+    setInviting(true);
+    try {
+      const invite = await createInvite();
+      const inviteUrl = getInviteShareUrl(invite.code);
+      try {
+        await Share.share({
+          message: `Join me on CraveMap — find restaurants real locals go to.\n\nUse my invite link: ${inviteUrl}\n\nOr enter code manually: ${invite.code}`,
+          title: 'Join CraveMap',
+          url: inviteUrl,
+        });
+      } catch {
+        Alert.alert('Your invite code', invite.code, [{ text: 'OK' }]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not create invite. Please try again.';
+      Alert.alert('Invite error', message);
+    } finally {
+      setInviting(false);
+    }
   };
 
   const handleSavedLists = () => {
@@ -133,8 +157,8 @@ export default function Settings() {
           />
           <SettingsRow
             icon="people-outline"
-            label="Invite Friends"
-            onPress={handleInviteFriends}
+            label={inviting ? 'Creating invite…' : 'Invite Friends'}
+            onPress={() => { void handleInviteFriends(); }}
             showChevron
           />
           <SettingsRow

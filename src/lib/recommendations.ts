@@ -119,7 +119,7 @@ export function computeTasteMatch(
   restaurant: Restaurant,
   profile: UserProfile | null | undefined
 ): number {
-  const base = restaurant.localApprovedPercent ?? 70;
+  const base = restaurant.localApprovedPercent ?? 0;
 
   if (!profile?.tastePassportComplete) {
     return Math.min(base + 3, 99);

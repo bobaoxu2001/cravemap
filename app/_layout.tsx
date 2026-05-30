@@ -25,6 +25,8 @@ export default function RootLayout() {
           <Stack.Screen name="redeem" options={{ presentation: 'modal' }} />
           <Stack.Screen name="privacy-policy" options={{ presentation: 'card' }} />
           <Stack.Screen name="terms" options={{ presentation: 'card' }} />
+          <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+          <Stack.Screen name="settings" options={{ presentation: 'card' }} />
         </Stack>
       </AuthProvider>
     </ErrorBoundary>

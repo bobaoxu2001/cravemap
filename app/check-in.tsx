@@ -397,7 +397,9 @@ export default function CheckIn() {
             {photoError ? <Text style={styles.photoErrorText}>{photoError}</Text> : null}
 
             {/* Hype rating — required */}
-            <Text style={styles.inputLabel}>Was it worth it?</Text>
+            <Text style={styles.inputLabel}>
+              Was it worth it? <Text style={styles.requiredAsterisk}>*</Text>
+            </Text>
             <View style={styles.hypeOptions}>
               {hypeOptions.map((opt) => (
                 <TouchableOpacity
@@ -413,6 +415,9 @@ export default function CheckIn() {
                 </TouchableOpacity>
               ))}
             </View>
+            {!hypeRating && (
+              <Text style={styles.requiredHint}>Required to post</Text>
+            )}
 
             {/* Taste tags — optional */}
             <Text style={styles.inputLabel}>
@@ -1131,6 +1136,17 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontWeight: '400',
     fontSize: 12,
+  },
+  requiredAsterisk: {
+    color: Colors.error,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  requiredHint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 4,
+    marginBottom: 4,
   },
   restaurantSearchBar: {
     flexDirection: 'row',
