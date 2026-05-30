@@ -26,6 +26,7 @@ import { createCheckIn } from '../src/services/checkIns';
 import { getTastePersona, getCurrentProfile } from '../src/services/profile';
 import { useAuth } from '../src/hooks/useAuth';
 import { getPetStats, getXPForCheckIn, PetStats } from '../src/services/petSystem';
+import { getFoundingScoutProgress } from '../src/services/rewards';
 import { getRestaurantShareUrl } from '../src/lib/links';
 import ProgressBar from '../components/ProgressBar';
 import TagChip from '../components/TagChip';
@@ -103,6 +104,7 @@ export default function CheckIn() {
   const [petStatsAfter, setPetStatsAfter] = useState<PetStats | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState('');
+  const [scoutProgress, setScoutProgress] = useState<{ completedCount: number; totalCount: number } | null>(null);
 
   const [sampleRestaurants, setSampleRestaurants] = useState<Restaurant[]>([]);
   const [restaurantSearch, setRestaurantSearch] = useState('');
@@ -133,10 +135,20 @@ export default function CheckIn() {
     setArr(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);
   };
 
+  // Require at least one meaningful content signal beyond the hype rating, so
+  // the feed stays trustworthy. A lone thumbs-up with no context is nearly
+  // useless to other users. The bar is low (one tag is enough), just not zero.
+  const hasContent =
+    review.trim().length > 0 ||
+    selectedTasteTags.length > 0 ||
+    selectedDietTags.length > 0 ||
+    selectedSceneTags.length > 0 ||
+    photos.length > 0;
+
   const canNext = () => {
     if (submitting) return false;
     if (step === 1) return selectedRestaurant !== null;
-    if (step === 2) return hypeRating !== null;
+    if (step === 2) return hypeRating !== null && hasContent;
     return true;
   };
 
@@ -277,6 +289,9 @@ export default function CheckIn() {
         setPetStatsAfter(getPetStats(profileAfter));
       }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void getFoundingScoutProgress(userId ?? DEMO_USER_ID)
+        .then((p) => setScoutProgress({ completedCount: p.completedCount, totalCount: p.totalCount }))
+        .catch(() => {});
       setShowSuccess(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Check-in failed. Please try again.';
@@ -475,6 +490,9 @@ export default function CheckIn() {
             {!hypeRating && (
               <Text style={styles.requiredHint}>Required to post</Text>
             )}
+            {hypeRating && !hasContent && (
+              <Text style={styles.requiredHint}>Add a review, tag, or photo to post</Text>
+            )}
 
             {/* Taste tags — optional */}
             <Text style={styles.inputLabel}>
@@ -563,6 +581,21 @@ export default function CheckIn() {
                 </Text>
                 <Text style={styles.petProgressHint}>
                   {petStatsAfter.xpToNextLevel} XP to {petStatsAfter.nextLevel?.titleZh}
+                </Text>
+              </View>
+            )}
+            {scoutProgress && scoutProgress.completedCount < scoutProgress.totalCount && (
+              <View style={styles.scoutProgressRow}>
+                <Ionicons name="shield-checkmark-outline" size={14} color={Colors.accent} />
+                <Text style={styles.scoutProgressText}>
+                  Founding Scout: {scoutProgress.completedCount}/{scoutProgress.totalCount} tasks done
+                </Text>
+              </View>
+            )}
+            {scoutProgress && scoutProgress.completedCount === scoutProgress.totalCount && (
+              <View style={[styles.scoutProgressRow, { backgroundColor: '#FFF8E1' }]}>
+                <Text style={[styles.scoutProgressText, { color: Colors.accent }]}>
+                  🏅 Founding Food Scout — all tasks complete!
                 </Text>
               </View>
             )}
@@ -1090,6 +1123,21 @@ const styles = StyleSheet.create({
     color: Colors.text,
     flex: 1,
     lineHeight: 18,
+  },
+  scoutProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginTop: Spacing.sm,
+  },
+  scoutProgressText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
   },
   shareCheckInBtn: {
     flexDirection: 'row',
