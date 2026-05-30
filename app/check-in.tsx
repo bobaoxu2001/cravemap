@@ -15,7 +15,9 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
+import { distanceMeters, CHECK_IN_RADIUS_M } from '../src/lib/geo';
 import { Restaurant } from '../types';
 import { getAllRestaurants } from '../src/services/restaurants';
 import { createCheckIn } from '../src/services/checkIns';
@@ -86,7 +88,9 @@ export default function CheckIn() {
   const [selectedDietTags, setSelectedDietTags] = useState<string[]>([]);
   const [selectedSceneTags, setSelectedSceneTags] = useState<string[]>([]);
   const [hypeRating, setHypeRating] = useState<HypeRating | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'verifying' | 'verified'>('idle');
+  const [locationStatus, setLocationStatus] = useState<
+    'idle' | 'verifying' | 'verified' | 'too_far' | 'unavailable'
+  >('idle');
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -133,13 +137,41 @@ export default function CheckIn() {
     return true;
   };
 
+  // Real location verification: confirm the user is actually near the venue
+  // before awarding the verified bonus. Any failure (services off, permission
+  // denied, GPS error) degrades to an honest "couldn't verify" state — the
+  // check-in still posts, just without the +150 bonus.
   useEffect(() => {
-    if (step === 2) {
-      setLocationStatus('verifying');
-      const timer = setTimeout(() => setLocationStatus('verified'), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [step]);
+    if (step !== 2 || !selectedRestaurant) return;
+    let cancelled = false;
+    setLocationStatus('verifying');
+    (async () => {
+      try {
+        const servicesOn = await Location.hasServicesEnabledAsync();
+        if (!servicesOn) {
+          if (!cancelled) setLocationStatus('unavailable');
+          return;
+        }
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (perm.status !== 'granted') {
+          if (!cancelled) setLocationStatus('unavailable');
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (cancelled) return;
+        const meters = distanceMeters(
+          { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
+          { latitude: selectedRestaurant.latitude, longitude: selectedRestaurant.longitude }
+        );
+        setLocationStatus(meters <= CHECK_IN_RADIUS_M ? 'verified' : 'too_far');
+      } catch {
+        if (!cancelled) setLocationStatus('unavailable');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [step, selectedRestaurant]);
 
   const remainingPhotoSlots = MAX_PHOTOS - photos.length;
 
@@ -366,8 +398,26 @@ export default function CheckIn() {
                   <View style={styles.locationVerifiedPill}>
                     <Text style={styles.locationVerifiedText}>✓ Verified +150 XP</Text>
                   </View>
+                ) : locationStatus === 'too_far' ? (
+                  <View style={styles.locationUnverifiedPill}>
+                    <Ionicons name="location-outline" size={13} color={Colors.textMuted} />
+                    <Text style={styles.locationUnverifiedText}>Not at venue</Text>
+                  </View>
+                ) : locationStatus === 'unavailable' ? (
+                  <View style={styles.locationUnverifiedPill}>
+                    <Ionicons name="location-outline" size={13} color={Colors.textMuted} />
+                    <Text style={styles.locationUnverifiedText}>Location off</Text>
+                  </View>
                 ) : null}
               </View>
+            )}
+
+            {(locationStatus === 'too_far' || locationStatus === 'unavailable') && (
+              <Text style={styles.locationHint}>
+                {locationStatus === 'too_far'
+                  ? "You're not near this spot, so we can't add the verified bonus — your check-in still counts."
+                  : 'Turn on location to earn the verified bonus — your check-in still counts without it.'}
+              </Text>
             )}
 
             {/* Compact photo row */}
@@ -1075,6 +1125,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.green,
     fontWeight: '700',
+  },
+  locationUnverifiedPill: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  locationUnverifiedText: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  locationHint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    lineHeight: 16,
+    marginTop: 8,
+    marginBottom: 4,
   },
   locationVerifyingPill: {
     flexDirection: 'row',
