@@ -141,27 +141,6 @@ export default function Home() {
     : cityList;
   const featured = [...filteredCityList].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent)[0];
 
-  // Search results
-  const trimmedQuery = searchQuery.trim();
-  const searchResults = trimmedQuery
-    ? restaurants.filter((r) => {
-        const haystack = (r.name + ' ' + r.cuisine + ' ' + r.neighborhood + ' ' + r.tags.join(' ')).toLowerCase();
-        return haystack.includes(trimmedQuery.toLowerCase());
-      })
-    : [];
-
-  // Filter helpers
-  const isFiltered = activeFilter !== 'all' && !trimmedQuery;
-  const filteredSections = isFiltered
-    ? sections.filter((sec) => sec.key === activeFilter || sec.key === 'taste-match')
-    : sections;
-
-  const cityList = restaurants.filter((r) => r.city === selectedCity);
-  const filteredCityList = isFiltered
-    ? cityList.filter((r) => r.categories.includes(activeFilter))
-    : cityList;
-  const featured = [...filteredCityList].sort((a, b) => b.tasteMatchPercent - a.tasteMatchPercent)[0];
-
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
@@ -182,7 +161,7 @@ export default function Home() {
             <Text style={styles.citySelectorText}>{selectedCity.split(' ')[0]}</Text>
             <Ionicons name="chevron-down" size={12} color={Colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/(tabs)/rewards')}>
+          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/notifications')}>
             <Ionicons name="notifications-outline" size={22} color={Colors.text} />
             <View style={styles.notifDot} />
           </TouchableOpacity>

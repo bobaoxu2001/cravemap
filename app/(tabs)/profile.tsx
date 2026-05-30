@@ -28,14 +28,14 @@ import PetCard from '../../components/PetCard';
 
 const DEMO_USER_ID = 'u001';
 
-type MenuAction = 'invite' | null;
+type MenuAction = 'invite' | 'help' | null;
 
 const menuItems: Array<{ icon: string; label: string; route: string | null; action: MenuAction }> = [
   { icon: 'compass-outline', label: 'Edit Taste Passport', route: '/onboarding/taste-passport', action: null },
   { icon: 'checkmark-circle-outline', label: 'My Check-ins', route: '/my-check-ins', action: null },
   { icon: 'people-outline', label: 'Invite Friends', route: null, action: 'invite' },
-  { icon: 'settings-outline', label: 'Settings', route: null, action: null },
-  { icon: 'help-circle-outline', label: 'Help & Support', route: null, action: null },
+  { icon: 'settings-outline', label: 'Settings', route: '/settings', action: null },
+  { icon: 'help-circle-outline', label: 'Help & Support', route: null, action: 'help' },
 ];
 
 export default function Profile() {
@@ -136,8 +136,12 @@ export default function Profile() {
       void handleInvite();
       return;
     }
+    if (item.action === 'help') {
+      Alert.alert('Help & Support', 'For questions or feedback, email us at hello@cravemap.app or visit our community Discord.', [{ text: 'OK' }]);
+      return;
+    }
     if (item.route) {
-      router.push({ pathname: item.route as '/(tabs)/profile' | '/my-check-ins' | '/onboarding/taste-passport' });
+      router.push({ pathname: item.route as '/(tabs)/profile' | '/my-check-ins' | '/onboarding/taste-passport' | '/settings' });
     }
   };
 
