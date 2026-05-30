@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,10 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
+  RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant, UserProfile, CheckIn } from '../../types';
@@ -24,6 +26,8 @@ import {
   getHungryNowReason,
   getPrimaryOrder,
 } from '../../src/lib/recommendations';
+import { getNotifications } from '../../src/services/notifications';
+import { useAuth } from '../../src/hooks/useAuth';
 import SectionHeader from '../../components/SectionHeader';
 import HorizontalScroll from '../../components/HorizontalScroll';
 import RestaurantCard from '../../components/RestaurantCard';
@@ -85,23 +89,67 @@ function getRestaurantsForSection(key: string, city: string, allRestaurants: Res
   return list.filter((r) => r.categories.includes(key)).slice(0, 8);
 }
 
+const DEMO_USER_ID_HOME = 'u001';
+
 export default function Home() {
   const router = useRouter();
+  const { session, isSupabaseMode } = useAuth();
+  const userId = isSupabaseMode ? (session?.userId ?? null) : DEMO_USER_ID_HOME;
+
   const [selectedCity, setSelectedCity] = useState('New York City');
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [recentCheckIns, setRecentCheckIns] = useState<CheckIn[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Debounce search input: only filter after 250ms idle so each keystroke
+  // doesn't trigger a full-list recompute.
   useEffect(() => {
-    Promise.all([getAllRestaurants(), getCurrentProfile()])
-      .then(([r, p]) => { setRestaurants(r); setProfile(p); })
-      .finally(() => setLoading(false));
-    getAllCheckIns().then(setRecentCheckIns);
-  }, []);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 250);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, [searchQuery]);
+
+  const loadData = useCallback((silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+    const uid = userId ?? DEMO_USER_ID_HOME;
+    return Promise.all([
+      getAllRestaurants(),
+      getCurrentProfile(),
+      getAllCheckIns(),
+    ]).then(([r, p, checkIns]) => {
+      setRestaurants(r);
+      setProfile(p);
+      setRecentCheckIns(checkIns);
+      // Load unread notification count in the background.
+      getNotifications(uid, p)
+        .then((notifs) => setUnreadCount(notifs.filter((n) => n.unread).length))
+        .catch(() => {});
+    }).finally(() => {
+      setLoading(false);
+      setRefreshing(false);
+    });
+  }, [userId]);
+
+  useEffect(() => { void loadData(); }, [loadData]);
+
+  useFocusEffect(useCallback(() => {
+    // Silent refresh on tab focus — don't show spinner, just update in bg.
+    const uid = userId ?? DEMO_USER_ID_HOME;
+    void getCurrentProfile().then((p) => {
+      if (p) setProfile(p);
+      return getNotifications(uid, p);
+    }).then((notifs) => setUnreadCount(notifs.filter((n) => n.unread).length))
+      .catch(() => {});
+  }, [userId]));
 
   if (loading) {
     return (
@@ -120,17 +168,16 @@ export default function Home() {
   const personalizedRestaurants = applyTastePassport(restaurants, profile);
   const hungryNowPick = getHungryNowPick(personalizedRestaurants, selectedCity);
 
-  // Search results
-  const trimmedQuery = searchQuery.trim();
-  const searchResults = trimmedQuery
+  // Search results — uses debouncedQuery so we filter only after 250ms idle.
+  const searchResults = debouncedQuery
     ? personalizedRestaurants.filter((r) => {
         const haystack = (r.name + ' ' + r.cuisine + ' ' + r.neighborhood + ' ' + r.tags.join(' ')).toLowerCase();
-        return haystack.includes(trimmedQuery.toLowerCase());
+        return haystack.includes(debouncedQuery.toLowerCase());
       })
     : [];
 
   // Filter helpers
-  const isFiltered = activeFilter !== 'all' && !trimmedQuery;
+  const isFiltered = activeFilter !== 'all' && !debouncedQuery;
   const filteredSections = isFiltered
     ? sections.filter((sec) => sec.key === activeFilter || sec.key === 'taste-match')
     : sections;
@@ -161,9 +208,18 @@ export default function Home() {
             <Text style={styles.citySelectorText}>{selectedCity.split(' ')[0]}</Text>
             <Ionicons name="chevron-down" size={12} color={Colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/notifications')}>
+          <TouchableOpacity style={styles.notifBtn} onPress={() => {
+            setUnreadCount(0);
+            router.push('/notifications');
+          }}>
             <Ionicons name="notifications-outline" size={22} color={Colors.text} />
-            <View style={styles.notifDot} />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>
+                  {unreadCount > 9 ? '9+' : String(unreadCount)}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -184,7 +240,16 @@ export default function Home() {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void loadData(true)}
+            tintColor={Colors.primary}
+          />
+        }
+      >
         {/* Persona chip */}
         <TouchableOpacity
           style={styles.personaChip}
@@ -234,7 +299,10 @@ export default function Home() {
               <TouchableOpacity
                 key={filter.key}
                 style={[styles.quickFilterChip, isActive && styles.quickFilterChipActive]}
-                onPress={() => setActiveFilter(filter.key)}
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setActiveFilter(filter.key);
+                }}
                 activeOpacity={0.75}
               >
                 <Text style={{ fontSize: 13 }}>{filter.emoji}</Text>
@@ -247,11 +315,11 @@ export default function Home() {
         </ScrollView>
 
         {/* Search results view */}
-        {trimmedQuery ? (
+        {debouncedQuery ? (
           <>
             <View style={styles.searchResultsHeader}>
               <Text style={styles.searchResultsCount}>
-                {searchResults.length} spot{searchResults.length !== 1 ? 's' : ''} found for "{trimmedQuery}"
+                {searchResults.length} spot{searchResults.length !== 1 ? 's' : ''} found for "{debouncedQuery}"
               </Text>
             </View>
             {searchResults.map((r) => (
@@ -503,16 +571,25 @@ const styles = StyleSheet.create({
     padding: 4,
     position: 'relative',
   },
-  notifDot: {
+  notifBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: Colors.primary,
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.error ?? '#E53935',
     borderWidth: 1.5,
     borderColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  notifBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#fff',
+    lineHeight: 12,
   },
   dropdown: {
     position: 'absolute',

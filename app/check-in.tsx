@@ -16,6 +16,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { distanceMeters, CHECK_IN_RADIUS_M } from '../src/lib/geo';
 import { Restaurant } from '../types';
@@ -273,6 +274,7 @@ export default function CheckIn() {
         const profileAfter = { ...profileBefore, checkInCount: profileBefore.checkInCount + 1 };
         setPetStatsAfter(getPetStats(profileAfter));
       }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowSuccess(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Check-in failed. Please try again.';
@@ -455,7 +457,10 @@ export default function CheckIn() {
                 <TouchableOpacity
                   key={opt.value}
                   style={[styles.hypeOption, hypeRating === opt.value && styles.hypeOptionSelected]}
-                  onPress={() => setHypeRating(opt.value)}
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setHypeRating(opt.value);
+                  }}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.hypeEmoji}>{opt.emoji}</Text>

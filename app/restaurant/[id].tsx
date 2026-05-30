@@ -13,6 +13,7 @@ import {
   Share,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { Restaurant, CheckIn } from '../../types';
@@ -124,6 +125,7 @@ export default function RestaurantDetail() {
     if (!userId || saveLoading) return;
 
     const next = !saved;
+    void Haptics.impactAsync(next ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
     setSaved(next);
     setSaveLoading(true);
     try {
