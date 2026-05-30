@@ -20,21 +20,24 @@ interface FoundingScoutRow {
 }
 
 export async function getFoundingScoutProgress(userId: string): Promise<FoundingScoutProgress> {
+  // maybeSingle(), not single(): a brand-new user has no progress row yet, and
+  // single() treats "0 rows" as an error — which would bubble up and (via the
+  // dispatcher's mock fallback) show the demo user's rewards to a real user.
   const { data, error } = await requireClient()
     .from('founding_scout_progress')
     .select('user_id, taste_passport, three_check_ins, verified_check_in, two_invites')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw new Error(error.message || 'Failed to load Founding Scout progress.');
   }
 
-  const row = data as unknown as FoundingScoutRow;
-  const tastePassport = row.taste_passport ?? false;
-  const threeCheckIns = row.three_check_ins ?? false;
-  const verifiedCheckIn = row.verified_check_in ?? false;
-  const twoInvites = row.two_invites ?? false;
+  const row = (data as unknown as FoundingScoutRow | null);
+  const tastePassport = row?.taste_passport ?? false;
+  const threeCheckIns = row?.three_check_ins ?? false;
+  const verifiedCheckIn = row?.verified_check_in ?? false;
+  const twoInvites = row?.two_invites ?? false;
   const completedCount = [tastePassport, threeCheckIns, verifiedCheckIn, twoInvites].filter(Boolean).length;
   const totalCount = 4;
 
