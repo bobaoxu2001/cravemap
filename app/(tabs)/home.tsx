@@ -214,7 +214,7 @@ export default function Home() {
               </TouchableOpacity>
             ) : (
               <VoiceMic
-                restaurants={restaurants}
+                restaurants={personalizedRestaurants}
                 onResult={() => router.push('/voice-results')}
               />
             )}

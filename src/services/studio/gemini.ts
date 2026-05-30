@@ -184,6 +184,38 @@ async function fetchWithRetry(url: string, body: GeminiRequestBody): Promise<Res
   throw new GeminiNetworkError('Network request to Gemini failed after retries.', lastCause);
 }
 
+// ── User-facing error mapping ─────────────────────────────────────────────────
+
+/**
+ * Map a Studio/Gemini error to a clean, user-facing message. The raw error
+ * messages embed API response bodies and internal prefixes that shouldn't be
+ * shown to a merchant — use this anywhere an error reaches the UI.
+ */
+export function friendlyGeminiMessage(err: unknown): string {
+  if (err instanceof GeminiConfigError) {
+    return 'AI features are not configured yet. Add your API key to enable them.';
+  }
+  if (err instanceof GeminiNetworkError) {
+    return 'Couldn’t reach the AI service. Check your connection and try again.';
+  }
+  if (err instanceof GeminiBlockedError) {
+    return 'The request was blocked by the AI safety filter. Try rephrasing your input.';
+  }
+  if (err instanceof GeminiParseError) {
+    return 'The AI returned an unexpected response. Please try again.';
+  }
+  if (err instanceof GeminiApiError) {
+    if (err.statusCode === 429) {
+      return 'The AI service is busy right now. Please try again in a moment.';
+    }
+    if (err.statusCode >= 500) {
+      return 'The AI service had a temporary problem. Please try again.';
+    }
+    return 'The AI request failed. Please try again.';
+  }
+  return 'Something went wrong. Please try again.';
+}
+
 // ── Error classes ─────────────────────────────────────────────────────────────
 
 export class GeminiConfigError extends Error {
