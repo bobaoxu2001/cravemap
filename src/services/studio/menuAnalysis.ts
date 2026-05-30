@@ -175,6 +175,37 @@ All output must be valid JSON matching the requested schema exactly.`;
 
 // ── Function ──────────────────────────────────────────────────────────────────
 
+// Gemini's responseSchema is best-effort, not a hard guarantee — under load it
+// can omit a "required" array or object. The result screens map over these
+// fields directly, so a missing array would crash the view (no error boundary
+// on that path). Coerce the model output into a guaranteed-safe shape.
+const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const asString = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
+
+export function normalizeMenuAnalysisOutput(raw: Partial<MenuAnalysisOutput> | null | undefined): MenuAnalysisOutput {
+  const r = raw ?? {};
+  const pricing = r.pricing_insights ?? ({} as PricingInsights);
+  const health = r.health_positioning ?? ({} as HealthPositioning);
+  return {
+    summary: asString(r.summary),
+    top_dishes: asArray<TopDish>(r.top_dishes),
+    customer_personas: asArray<CustomerPersona>(r.customer_personas),
+    taste_tags: asArray<string>(r.taste_tags),
+    pricing_insights: {
+      tier: pricing.tier ?? '$$',
+      positioning: asString(pricing.positioning),
+      opportunities: asArray<string>(pricing.opportunities),
+    },
+    health_positioning: {
+      highlights: asArray<string>(health.highlights),
+      dietaryOptions: asArray<string>(health.dietaryOptions),
+      marketingClaims: asArray<string>(health.marketingClaims),
+    },
+    content_angles: asArray<ContentAngle>(r.content_angles),
+    risks: asArray<RiskNote>(r.risks),
+  };
+}
+
 export async function analyzeRestaurantMenu(
   input: MenuAnalysisInput,
 ): Promise<MenuAnalysisResult> {
@@ -201,12 +232,14 @@ Analyze this menu and return:
 7. 3-5 content angles for marketing — campaign themes with suggested formats.
 8. 2-4 risks or missing-information notes — be honest about gaps in the menu, pricing, or positioning.`;
 
-  return callGeminiStructured<MenuAnalysisOutput>({
+  const result = await callGeminiStructured<MenuAnalysisOutput>({
     systemInstruction: SYSTEM_INSTRUCTION,
     userPrompt,
     responseSchema: MENU_ANALYSIS_SCHEMA,
     temperature: 0.4,
   });
+
+  return { ...result, data: normalizeMenuAnalysisOutput(result.data) };
 }
 
 // ── Example (for tests / documentation) ──────────────────────────────────────
