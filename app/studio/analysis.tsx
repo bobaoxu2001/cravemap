@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useStudioAuthGate } from '../../src/hooks/useStudioAuthGate';
 import {
   getLatestMenuAnalysis,
   runMenuAnalysis,
@@ -37,6 +38,7 @@ type Stage = 'loading' | 'empty' | 'running' | 'result' | 'error';
 export default function StudioAnalysis() {
   const router = useRouter();
   const { session, isSupabaseMode } = useAuth();
+  const gate = useStudioAuthGate();
 
   const [stage, setStage] = useState<Stage>('loading');
   const [analysis, setAnalysis] = useState<StoredAnalysis | null>(null);
@@ -88,6 +90,30 @@ export default function StudioAnalysis() {
       setStage('error');
     }
   };
+
+  // While auth is loading, or in mock mode (which redirect logic doesn't
+  // cover), short-circuit before doing any data work.
+  if (!gate.ready) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.blob1} />
+        <View style={styles.blob2} />
+        <View style={styles.centerState}>
+          {gate.blocked && gate.reason === 'mock-mode' ? (
+            <>
+              <Text style={{ fontSize: 48 }}>🔌</Text>
+              <Text style={styles.errorTitle}>Studio needs Supabase</Text>
+              <Text style={styles.errorBody}>
+                Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env, then restart the app.
+              </Text>
+            </>
+          ) : (
+            <ActivityIndicator color={STUDIO_BLUE} size="large" />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>

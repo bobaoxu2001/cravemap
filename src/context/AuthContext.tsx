@@ -17,6 +17,7 @@ import {
   signUp as serviceSignUp,
 } from '../services/auth';
 import { getProfileById } from '../services/profile';
+import { isUserMerchant } from '../services/studio/merchantStatus';
 import type { AuthSession, AuthUserMetadata } from '../services/types';
 
 interface AuthContextValue {
@@ -27,8 +28,11 @@ interface AuthContextValue {
   profileLoading: boolean;
   isAuthenticated: boolean;
   isProfileComplete: boolean;
+  isMerchant: boolean;
+  isMerchantLoading: boolean;
   isSupabaseMode: boolean;
   refreshProfile: () => Promise<UserProfile | null>;
+  refreshMerchantStatus: () => Promise<boolean>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (
     email: string,
@@ -46,17 +50,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [isMerchant, setIsMerchant] = useState(false);
+  const [isMerchantLoading, setIsMerchantLoading] = useState(false);
 
-  const loadProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
-    setProfileLoading(true);
+  const loadMerchantStatus = useCallback(async (userId: string): Promise<boolean> => {
+    if (!USE_SUPABASE) {
+      setIsMerchant(false);
+      setIsMerchantLoading(false);
+      return false;
+    }
+    setIsMerchantLoading(true);
     try {
-      const nextProfile = await getProfileById(userId);
-      setProfile(nextProfile);
-      return nextProfile;
+      const result = await isUserMerchant(userId);
+      setIsMerchant(result);
+      return result;
     } finally {
-      setProfileLoading(false);
+      setIsMerchantLoading(false);
     }
   }, []);
+
+  const loadProfile = useCallback(
+    async (userId: string): Promise<UserProfile | null> => {
+      setProfileLoading(true);
+      try {
+        const nextProfile = await getProfileById(userId);
+        setProfile(nextProfile);
+        // Kick off merchant lookup in parallel — don't block profile loading
+        // on it, since it's a routing hint not a gating check.
+        void loadMerchantStatus(userId);
+        return nextProfile;
+      } finally {
+        setProfileLoading(false);
+      }
+    },
+    [loadMerchantStatus],
+  );
+
+  const refreshMerchantStatus = useCallback(async (): Promise<boolean> => {
+    if (!session) {
+      setIsMerchant(false);
+      return false;
+    }
+    return loadMerchantStatus(session.userId);
+  }, [loadMerchantStatus, session]);
 
   const refreshProfile = useCallback(async (): Promise<UserProfile | null> => {
     if (!session) {
@@ -152,6 +188,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setProfile(null);
     setProfileLoading(false);
+    setIsMerchant(false);
+    setIsMerchantLoading(false);
   }, []);
 
   const value = useMemo(
@@ -163,13 +201,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profileLoading,
       isAuthenticated: Boolean(session),
       isProfileComplete: Boolean(profile?.tastePassportComplete),
+      isMerchant,
+      isMerchantLoading,
       isSupabaseMode: USE_SUPABASE,
       refreshProfile,
+      refreshMerchantStatus,
       signIn,
       signUp,
       signOut,
     }),
-    [loading, profile, profileLoading, refreshProfile, session, signIn, signOut, signUp, user]
+    [
+      isMerchant,
+      isMerchantLoading,
+      loading,
+      profile,
+      profileLoading,
+      refreshMerchantStatus,
+      refreshProfile,
+      session,
+      signIn,
+      signOut,
+      signUp,
+      user,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

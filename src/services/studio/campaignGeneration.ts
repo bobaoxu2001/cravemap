@@ -5,7 +5,7 @@
 // campaign. Output maps directly to the ai_campaigns table columns.
 // ============================================================================
 
-import { callGeminiStructured, GeminiResult } from './gemini';
+import { assertGeminiShape, callGeminiStructured, GeminiResult } from './gemini';
 import type { MenuAnalysisOutput } from './menuAnalysis';
 
 // ── Input ─────────────────────────────────────────────────────────────────────
@@ -226,12 +226,27 @@ Generate a focused 7-day local restaurant marketing campaign. Requirements:
 
 Local and genuine voice. No corporate-speak. Write like a food-obsessed local would.`;
 
-  return callGeminiStructured<CampaignOutput>({
+  const result = await callGeminiStructured<CampaignOutput>({
     systemInstruction: SYSTEM_INSTRUCTION,
     userPrompt,
     responseSchema: CAMPAIGN_SCHEMA,
     temperature: 0.7,
   });
+
+  assertGeminiShape(
+    result.data,
+    {
+      campaign_title: { type: 'string' },
+      campaign_goal: { type: 'string' },
+      content_calendar: { type: 'array' },
+      short_video_scripts: { type: 'array' },
+      instagram_captions: { type: 'array' },
+      recommendation_cards: { type: 'array' },
+    },
+    'Campaign',
+  );
+
+  return result;
 }
 
 // ── Example (for tests / documentation) ──────────────────────────────────────

@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
+import { useAuth } from '../../src/hooks/useAuth';
 
 const features = [
   {
@@ -36,6 +37,7 @@ const features = [
 
 export default function StudioHome() {
   const router = useRouter();
+  const { isSupabaseMode } = useAuth();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -93,10 +95,21 @@ export default function StudioHome() {
           <Text style={styles.ctaDesc}>
             Takes 2 minutes. Paste your menu, tell us about your restaurant, and get your first AI analysis and 7-day campaign — free during pilot.
           </Text>
+
+          {!isSupabaseMode && (
+            <View style={styles.mockNotice}>
+              <Ionicons name="information-circle-outline" size={16} color="#FFB800" />
+              <Text style={styles.mockNoticeText}>
+                Studio requires Supabase. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to your .env and restart to enable.
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
-            style={styles.ctaButton}
+            style={[styles.ctaButton, !isSupabaseMode && styles.ctaButtonDisabled]}
             onPress={() => router.push('/studio/onboarding')}
-            activeOpacity={0.85}
+            activeOpacity={isSupabaseMode ? 0.85 : 1}
+            disabled={!isSupabaseMode}
           >
             <Text style={styles.ctaButtonText}>Set Up My Restaurant</Text>
             <Ionicons name="arrow-forward" size={16} color="#fff" />
@@ -281,5 +294,26 @@ const styles = StyleSheet.create({
   ctaButtonText: {
     ...Typography.h3,
     color: '#fff',
+  },
+  ctaButtonDisabled: {
+    opacity: 0.5,
+  },
+  mockNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#3A2A0A',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#5A4520',
+  },
+  mockNoticeText: {
+    ...Typography.caption,
+    color: '#FFD37A',
+    flex: 1,
+    lineHeight: 17,
   },
 });

@@ -70,7 +70,10 @@ export async function callGeminiStructured<T>(
   }
 
   const model = opts.model ?? DEFAULT_MODEL;
-  const url = `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`;
+  // Use header auth instead of `?key=` query string — keeps the key out of
+  // URL logs / proxy access logs / error reporters. Gemini v1beta supports
+  // both forms; header is the documented preferred form.
+  const url = `${GEMINI_BASE}/${model}:generateContent`;
 
   const body: GeminiRequestBody = {
     contents: [{ role: 'user', parts: [{ text: opts.userPrompt }] }],
@@ -91,7 +94,10 @@ export async function callGeminiStructured<T>(
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
       body: JSON.stringify(body),
     });
   } catch (cause) {
@@ -195,4 +201,54 @@ interface GeminiApiResponse {
     finishReason?: string;
   }>;
   promptFeedback?: { blockReason?: string };
+}
+
+// ── Runtime validation ────────────────────────────────────────────────────────
+//
+// Gemini's responseSchema is best-effort — under load it occasionally omits
+// required fields or returns nulls in place of arrays. Validate the shape at
+// the boundary so downstream code can safely assume invariants.
+
+export type FieldSpec =
+  | { type: 'string' }
+  | { type: 'array' }
+  | { type: 'object' };
+
+/**
+ * Throws GeminiParseError if `data` is not an object or is missing any of the
+ * required keys, or if any key fails its expected type check.
+ *
+ * Intentionally shallow: we only validate top-level invariants used by the
+ * UI. Nested array items default to safe empties via the orchestrator's
+ * read path, so we don't need a full schema validator here.
+ */
+export function assertGeminiShape(
+  data: unknown,
+  spec: Record<string, FieldSpec>,
+  label: string,
+): void {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new GeminiParseError(
+      `${label}: expected a JSON object, got ${data === null ? 'null' : typeof data}`,
+    );
+  }
+  const obj = data as Record<string, unknown>;
+  for (const [key, fieldSpec] of Object.entries(spec)) {
+    const value = obj[key];
+    if (value === undefined || value === null) {
+      throw new GeminiParseError(`${label}: missing required field "${key}"`);
+    }
+    if (fieldSpec.type === 'string' && typeof value !== 'string') {
+      throw new GeminiParseError(`${label}: field "${key}" must be a string`);
+    }
+    if (fieldSpec.type === 'array' && !Array.isArray(value)) {
+      throw new GeminiParseError(`${label}: field "${key}" must be an array`);
+    }
+    if (
+      fieldSpec.type === 'object' &&
+      (typeof value !== 'object' || Array.isArray(value))
+    ) {
+      throw new GeminiParseError(`${label}: field "${key}" must be an object`);
+    }
+  }
 }

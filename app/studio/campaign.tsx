@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BorderRadius, Colors, Spacing, Typography } from '../../constants/theme';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useStudioAuthGate } from '../../src/hooks/useStudioAuthGate';
 import {
   getLatestCampaign,
   runCampaignGeneration,
@@ -63,6 +64,7 @@ async function shareText(text: string): Promise<void> {
 export default function StudioCampaign() {
   const router = useRouter();
   const { session, isSupabaseMode } = useAuth();
+  const gate = useStudioAuthGate();
 
   const [stage, setStage] = useState<Stage>('loading');
   const [campaign, setCampaign] = useState<StoredCampaign | null>(null);
@@ -114,6 +116,28 @@ export default function StudioCampaign() {
       setStage('error');
     }
   };
+
+  if (!gate.ready) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.blob1} />
+        <View style={styles.blob2} />
+        <View style={styles.centerState}>
+          {gate.blocked && gate.reason === 'mock-mode' ? (
+            <>
+              <Text style={{ fontSize: 48 }}>🔌</Text>
+              <Text style={styles.errorTitle}>Studio needs Supabase</Text>
+              <Text style={styles.errorBody}>
+                Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env, then restart the app.
+              </Text>
+            </>
+          ) : (
+            <ActivityIndicator color={S.blue} size="large" />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
