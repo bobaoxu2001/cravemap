@@ -17,23 +17,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { UserProfile } from '../../types';
 import { getCurrentProfile, getTastePersona } from '../../src/services/profile';
+import { getPetStats } from '../../src/services/petSystem';
 import { createInvite, redeemInvite } from '../../src/services/invites';
 import { deleteAccount } from '../../src/services/account';
 import { getInviteShareUrl } from '../../src/lib/links';
 import { useAuth } from '../../src/hooks/useAuth';
 import TagChip from '../../components/TagChip';
 import Mascot from '../../components/Mascot';
+import PetCard from '../../components/PetCard';
 
 const DEMO_USER_ID = 'u001';
 
-type MenuAction = 'invite' | null;
+type MenuAction = 'invite' | 'help' | null;
 
 const menuItems: Array<{ icon: string; label: string; route: string | null; action: MenuAction }> = [
   { icon: 'compass-outline', label: 'Edit Taste Passport', route: '/onboarding/taste-passport', action: null },
   { icon: 'checkmark-circle-outline', label: 'My Check-ins', route: '/my-check-ins', action: null },
   { icon: 'people-outline', label: 'Invite Friends', route: null, action: 'invite' },
-  { icon: 'settings-outline', label: 'Settings', route: null, action: null },
-  { icon: 'help-circle-outline', label: 'Help & Support', route: null, action: null },
+  { icon: 'settings-outline', label: 'Settings', route: '/settings', action: null },
+  { icon: 'help-circle-outline', label: 'Help & Support', route: null, action: 'help' },
 ];
 
 export default function Profile() {
@@ -134,8 +136,12 @@ export default function Profile() {
       void handleInvite();
       return;
     }
+    if (item.action === 'help') {
+      Alert.alert('Help & Support', 'For questions or feedback, email us at hello@cravemap.app or visit our community Discord.', [{ text: 'OK' }]);
+      return;
+    }
     if (item.route) {
-      router.push({ pathname: item.route as '/(tabs)/profile' | '/my-check-ins' | '/onboarding/taste-passport' });
+      router.push({ pathname: item.route as '/(tabs)/profile' | '/my-check-ins' | '/onboarding/taste-passport' | '/settings' });
     }
   };
 
@@ -173,7 +179,7 @@ export default function Profile() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/onboarding/taste-passport')}>
             <Ionicons name="create-outline" size={22} color={Colors.text} />
           </TouchableOpacity>
         </View>
@@ -198,17 +204,20 @@ export default function Profile() {
               <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
               <Text style={styles.cityText}>{profile.city}</Text>
             </View>
+            <View style={styles.personaBadge}>
+              <Text style={styles.personaBadgeText}>{persona}</Text>
+            </View>
           </View>
           <View style={styles.statsRow}>
-            <View style={styles.stat}>
+            <TouchableOpacity style={styles.stat} onPress={() => router.push('/my-check-ins')} activeOpacity={0.7}>
               <Text style={styles.statNum}>{profile.checkInCount}</Text>
               <Text style={styles.statLabel}>Check-ins</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.statDivider} />
-            <View style={styles.stat}>
+            <TouchableOpacity style={styles.stat} onPress={() => router.push('/(tabs)/saved')} activeOpacity={0.7}>
               <Text style={styles.statNum}>{profile.savedCount}</Text>
               <Text style={styles.statLabel}>Saved</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
               <Text style={[styles.statNum, profile.foundingScoutProgress.verifiedCheckIn && { color: Colors.green }]}>
@@ -216,7 +225,17 @@ export default function Profile() {
               </Text>
               <Text style={styles.statLabel}>Verified</Text>
             </View>
+            <View style={styles.statDivider} />
+            <TouchableOpacity style={styles.stat} onPress={() => {}} activeOpacity={0.7}>
+              <Text style={styles.statNum}>Lv.{getPetStats(profile).level}</Text>
+              <Text style={styles.statLabel}>Pet Level</Text>
+            </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Pet upgrade card */}
+        <View style={styles.petCardWrap}>
+          <PetCard profile={profile} />
         </View>
 
         {/* Taste Passport */}
@@ -556,6 +575,10 @@ const styles = StyleSheet.create({
     height: 30,
     backgroundColor: Colors.border,
   },
+  petCardWrap: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+  },
   section: {
     backgroundColor: Colors.card,
     marginHorizontal: Spacing.md,
@@ -784,5 +807,20 @@ const styles = StyleSheet.create({
     color: Colors.error,
     marginTop: Spacing.sm,
     lineHeight: 18,
+  },
+  personaBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 4,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  personaBadgeText: {
+    fontSize: 12,
+    color: Colors.primary,
+    fontWeight: '700',
   },
 });

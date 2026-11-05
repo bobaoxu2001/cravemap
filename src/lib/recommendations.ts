@@ -17,10 +17,13 @@ function scoreRestaurant(restaurant: Restaurant): number {
   const openBonus = restaurant.isOpen ? 14 : -18;
   const recentBonus = Math.min(restaurant.recentVisits ?? 0, 200) / 10;
   const hiddenGemBonus = restaurant.categories.includes('hidden-gems') ? 4 : 0;
+  // `?? 0` on every numeric term: these fields are non-optional in the type but
+  // can arrive null from Supabase rows constructed outside transforms.ts. A
+  // single NaN here propagates through sort() and makes the "best" pick random.
   return (
-    restaurant.tasteMatchPercent * 0.45 +
-    restaurant.localApprovedPercent * 0.35 +
-    Math.min(restaurant.verifiedCheckIns, 2000) / 80 +
+    (restaurant.tasteMatchPercent ?? 0) * 0.45 +
+    (restaurant.localApprovedPercent ?? 0) * 0.35 +
+    Math.min(restaurant.verifiedCheckIns ?? 0, 2000) / 80 +
     recentBonus +
     hiddenGemBonus +
     openBonus -
@@ -37,8 +40,8 @@ export function getPrimaryOrder(restaurant: Restaurant): string {
 
 export function getRecommendationProof(restaurant: Restaurant, profile?: UserProfile | null): string[] {
   const proof = [
-    `${restaurant.tasteMatchPercent}% match for your Taste Passport`,
-    `${restaurant.localApprovedPercent}% local approval from verified visits`,
+    `${restaurant.tasteMatchPercent ?? 0}% match for your Taste Passport`,
+    `${restaurant.localApprovedPercent ?? 0}% local approval from verified visits`,
   ];
 
   const matchingTaste = profile?.tastePreferences?.find((taste) => {
@@ -116,7 +119,7 @@ export function computeTasteMatch(
   restaurant: Restaurant,
   profile: UserProfile | null | undefined
 ): number {
-  const base = restaurant.localApprovedPercent ?? 70;
+  const base = restaurant.localApprovedPercent ?? 0;
 
   if (!profile?.tastePassportComplete) {
     return Math.min(base + 3, 99);
@@ -133,21 +136,28 @@ export function computeTasteMatch(
   // Scene matching is restricted to bestFor + categories (more deliberate).
   const sceneTokens = [...restaurant.bestFor, ...restaurant.categories];
 
-  let adjustment = 3; // mirrors the previous default for unmatched profiles
+  // Accumulate positive signal separately so we can cap it. Without a cap a
+  // heavily-tagged profile piles on +30+ and every match saturates at 99,
+  // which stops the score from differentiating restaurants at all — the
+  // opposite of the Taste Passport's purpose. Cap at +15 (the documented band).
+  const POSITIVE_CAP = 15;
+  let positive = 3; // mirrors the previous default for unmatched profiles
 
   // +4 per taste preference the restaurant matches.
   for (const taste of profile.tastePreferences ?? []) {
     if (tokenMatchesAny(taste, positiveTokens)) {
-      adjustment += 4;
+      positive += 4;
     }
   }
 
   // +3 per food scene the restaurant is "best for".
   for (const scene of profile.foodScenes ?? []) {
     if (tokenMatchesAny(scene, sceneTokens)) {
-      adjustment += 3;
+      positive += 3;
     }
   }
+
+  let adjustment = Math.min(positive, POSITIVE_CAP);
 
   // Dislikes — heuristic, signal by signal.
   for (const dislikeRaw of profile.dislikes ?? []) {

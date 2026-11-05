@@ -285,6 +285,7 @@ export default function MapScreen() {
         ))}
       </ScrollView>
 
+
       {/* Sort options */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortBar} contentContainerStyle={styles.filterContent}>
         {SORT_OPTIONS.map((s) => (

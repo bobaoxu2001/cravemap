@@ -36,6 +36,25 @@ function normalize(text: string): string {
     .replace(/[​-‍﻿]/g, '');
 }
 
+// Aggressively collapse text down to a bare alphanumeric/CJK signature for
+// banned-word matching. This defeats the common evasion tricks the plain
+// `normalize()` misses: spacing ("n i g g e r"), punctuation ("n.i.g.g.e.r"),
+// and leetspeak ("n1gg3r", "f@ggot"). We match banned words against BOTH the
+// readable normalized form and this collapsed form so a hit on either rejects.
+const LEET_MAP: Record<string, string> = {
+  '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't',
+  '@': 'a', '$': 's', '!': 'i', '|': 'i',
+};
+
+function collapseForMatch(normalized: string): string {
+  return normalized
+    .split('')
+    .map((ch) => LEET_MAP[ch] ?? ch)
+    // keep latin letters, digits-as-letters already mapped, and CJK; drop the rest
+    .filter((ch) => /[a-z0-9一-鿿]/.test(ch))
+    .join('');
+}
+
 export interface ContentCheckResult {
   ok: boolean;
   reason?: string;
@@ -59,7 +78,9 @@ export function validateUserText(
       : { ok: false, reason: `${field} can’t be empty.` };
   }
 
-  if (trimmed.length > MAX_LENGTH) {
+  // Count by code points so emoji / CJK (which span multiple UTF-16 units)
+  // aren't penalized — this app's audience writes emoji- and CJK-heavy reviews.
+  if ([...trimmed].length > MAX_LENGTH) {
     return {
       ok: false,
       reason: `${field} is too long (max ${MAX_LENGTH} characters).`,
@@ -67,6 +88,7 @@ export function validateUserText(
   }
 
   const normalized = normalize(trimmed);
+  const collapsed = collapseForMatch(normalized);
 
   // URLs in user reviews are almost always spam; refer them to a proper
   // restaurant submission flow instead of allowing freeform links.
@@ -86,7 +108,9 @@ export function validateUserText(
   }
 
   for (const word of BANNED_WORDS) {
-    if (normalized.includes(word)) {
+    // Match against the readable form and the collapsed (de-leeted, de-spaced)
+    // form so "n i g g e r" and "n1gg3r" are caught alongside the plain word.
+    if (normalized.includes(word) || collapsed.includes(collapseForMatch(word))) {
       return {
         ok: false,
         reason:

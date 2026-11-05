@@ -5,6 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Restaurant } from '../types';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 
+const TRENDING_BADGE: Record<string, { label: string; emoji: string; color: string; bg: string }> = {
+  trending:   { label: 'Trending',   emoji: '🔥', color: '#C44545', bg: '#FFF0F0' },
+  rising:     { label: 'Rising',     emoji: '📈', color: '#1565C0', bg: '#E3F2FD' },
+  underrated: { label: 'Underrated', emoji: '💎', color: '#6A1B9A', bg: '#F3E5F5' },
+  classic:    { label: 'Classic',    emoji: '⭐', color: '#B8860B', bg: '#FFF8E1' },
+};
+
 interface RestaurantCardProps {
   restaurant: Restaurant;
   topCheckIn?: { userName: string; hypeRating: string; review?: string; tasteTags?: string[] };
@@ -67,6 +74,13 @@ export default function RestaurantCard({ restaurant, topCheckIn }: RestaurantCar
       </View>
 
       <View style={styles.content}>
+        {restaurant.trendingSignal && TRENDING_BADGE[restaurant.trendingSignal] && (
+          <View style={[styles.trendingBadge, { backgroundColor: TRENDING_BADGE[restaurant.trendingSignal].bg }]}>
+            <Text style={[styles.trendingBadgeText, { color: TRENDING_BADGE[restaurant.trendingSignal].color }]}>
+              {TRENDING_BADGE[restaurant.trendingSignal].emoji} {TRENDING_BADGE[restaurant.trendingSignal].label}
+            </Text>
+          </View>
+        )}
         <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
         <Text style={styles.sub} numberOfLines={1}>{restaurant.neighborhood} · {restaurant.price}</Text>
 
@@ -258,6 +272,17 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.sm + 2,
+  },
+  trendingBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 4,
+  },
+  trendingBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   name: {
     fontSize: 16,

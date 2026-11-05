@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -13,7 +14,6 @@ import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 import { Restaurant } from '../types';
 import { VoiceIntent } from '../src/services/voice';
 import { getVoiceState, clearVoiceState } from '../src/services/voiceState';
-import RestaurantCard from '../components/RestaurantCard';
 
 export default function VoiceResults() {
   const router = useRouter();
@@ -110,22 +110,50 @@ export default function VoiceResults() {
         </View>
 
         {results.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cardsRow}
-          >
-            {results.map((r) => (
-              <RestaurantCard key={r.id} restaurant={r} />
+          <View style={styles.resultsList}>
+            {results.map((r, idx) => (
+              <TouchableOpacity
+                key={r.id}
+                style={styles.resultItem}
+                onPress={() => router.push(`/restaurant/${r.id}`)}
+                activeOpacity={0.85}
+              >
+                <Image source={{ uri: r.images[0] }} style={styles.resultItemImage} />
+                <View style={styles.resultItemContent}>
+                  <View style={styles.resultItemTopRow}>
+                    <Text style={styles.resultItemName} numberOfLines={1}>{r.name}</Text>
+                    <Text style={styles.resultItemPrice}>{r.price}</Text>
+                  </View>
+                  <Text style={styles.resultItemSub}>{r.neighborhood} · {r.cuisine}</Text>
+                  <View style={styles.resultItemBadgeRow}>
+                    <View style={[styles.resultMatchBadge, { backgroundColor: r.tasteMatchPercent >= 85 ? '#E8F5EE' : '#FFF4E6' }]}>
+                      <Text style={[styles.resultMatchText, { color: r.tasteMatchPercent >= 85 ? Colors.green : Colors.accent }]}>
+                        {r.tasteMatchPercent}% match
+                      </Text>
+                    </View>
+                    <View style={[styles.resultOpenDot, { backgroundColor: r.isOpen ? Colors.green : Colors.textMuted }]} />
+                    <Text style={[styles.resultOpenText, { color: r.isOpen ? Colors.green : Colors.textMuted }]}>
+                      {r.isOpen ? 'Open' : 'Closed'}
+                    </Text>
+                  </View>
+                  <Text style={styles.resultItemReason} numberOfLines={2}>{r.recommendationReason}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+              </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🔍</Text>
             <Text style={styles.emptyTitle}>No matches for that combination</Text>
-            <Text style={styles.emptyDesc}>
-              Try a broader search — e.g., just "辣的" or just "Chinese"
-            </Text>
+            <Text style={styles.emptyDesc}>Try a broader search — e.g., just "辣的" or just "Chinese"</Text>
+            <View style={styles.suggestionRow}>
+              {['Spicy', 'Chinese', 'Late night', 'Budget'].map((s) => (
+                <View key={s} style={styles.suggestionChip}>
+                  <Text style={styles.suggestionChipText}>{s}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
@@ -264,10 +292,86 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textMuted,
   },
-  cardsRow: {
-    paddingLeft: Spacing.md,
-    paddingRight: Spacing.xs,
-    paddingBottom: Spacing.sm,
+  resultsList: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  resultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  resultItemImage: {
+    width: 90,
+    height: 100,
+  },
+  resultItemContent: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingLeft: Spacing.xs,
+  },
+  resultItemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  resultItemName: {
+    ...Typography.label,
+    fontWeight: '700',
+    color: Colors.text,
+    flex: 1,
+    marginRight: 4,
+  },
+  resultItemPrice: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  resultItemSub: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  resultItemBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  resultMatchBadge: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  resultMatchText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  resultOpenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  resultOpenText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  resultItemReason: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 15,
   },
   emptyState: {
     alignItems: 'center',
@@ -289,6 +393,26 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: Spacing.sm,
+    justifyContent: 'center',
+  },
+  suggestionChip: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  suggestionChipText: {
+    fontSize: 13,
+    color: Colors.text,
+    fontWeight: '600',
   },
   tryAgainBtn: {
     flexDirection: 'row',

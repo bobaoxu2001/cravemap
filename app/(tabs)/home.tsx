@@ -161,7 +161,7 @@ export default function Home() {
             <Text style={styles.citySelectorText}>{selectedCity.split(' ')[0]}</Text>
             <Ionicons name="chevron-down" size={12} color={Colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/(tabs)/rewards')}>
+          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/notifications')}>
             <Ionicons name="notifications-outline" size={22} color={Colors.text} />
             <View style={styles.notifDot} />
           </TouchableOpacity>
@@ -214,7 +214,7 @@ export default function Home() {
               </TouchableOpacity>
             ) : (
               <VoiceMic
-                restaurants={restaurants}
+                restaurants={personalizedRestaurants}
                 onResult={() => router.push('/voice-results')}
               />
             )}
@@ -426,7 +426,7 @@ export default function Home() {
                     subtitle={sec.subtitle(selectedCity)}
                     onSeeAll={() => router.push('/map')}
                   />
-                  <HorizontalScroll restaurants={sectionRestaurants} />
+                  <HorizontalScroll restaurants={sectionRestaurants} checkIns={recentCheckIns} />
                 </View>
               );
             })}
