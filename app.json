@@ -16,7 +16,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.cravemap.app",
       "buildNumber": "1",
       "infoPlist": {
@@ -44,7 +44,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow CraveMap to use your location to show nearby restaurants on the map."
+          "locationWhenInUsePermission": "Allow CraveMap to use your location to show nearby restaurants and to verify you were at a restaurant when you check in."
         }
       ],
       [

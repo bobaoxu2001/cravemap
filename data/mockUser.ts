@@ -10,14 +10,14 @@ export const mockUser: UserProfile = {
   dislikes: ['Too Sweet', 'Touristy', 'Overhyped'],
   dietNeeds: [],
   foodScenes: ['Cheap Eats', 'Late-Night', 'Solo Dining', 'Study Cafe'],
-  checkInCount: 1,
-  savedCount: 4,
+  checkInCount: 3,
+  savedCount: 6,
   badges: ['Founding Food Scout (Pending)', 'Taste Passport Complete'],
   tastePassportComplete: true,
   foundingScoutProgress: {
     tastePassport: true,
-    threeCheckIns: false,
-    verifiedCheckIn: false,
+    threeCheckIns: true,
+    verifiedCheckIn: true,
     twoInvites: false,
   },
 };

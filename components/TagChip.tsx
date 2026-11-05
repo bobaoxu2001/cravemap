@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, View, Text, ViewStyle, TextStyle } from 'react-native';
 import { Colors, BorderRadius, Spacing, Typography } from '../constants/theme';
 
 type ChipVariant = 'primary' | 'green' | 'yellow' | 'red' | 'neutral';
@@ -19,7 +19,7 @@ const variantStyles: Record<ChipVariant, { bg: string; text: string }> = {
   neutral: { bg: '#F5F5F5', text: Colors.textSecondary },
 };
 
-export default function TagChip({ label, variant = 'neutral', size = 'sm', onPress }: TagChipProps) {
+function TagChipInner({ label, variant = 'neutral', size = 'sm', onPress }: TagChipProps) {
   const colors = variantStyles[variant];
   const containerStyle: ViewStyle = {
     backgroundColor: colors.bg,
@@ -37,14 +37,27 @@ export default function TagChip({ label, variant = 'neutral', size = 'sm', onPre
 
   if (onPress) {
     return (
-      <TouchableOpacity style={containerStyle} onPress={onPress} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={containerStyle}
+        onPress={onPress}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+      >
         <Text style={textStyle}>{label}</Text>
       </TouchableOpacity>
     );
   }
+  // Non-interactive — render as plain View so VoiceOver / TalkBack don't
+  // announce it as a button and so we don't get a "ghost" press feedback.
   return (
-    <TouchableOpacity style={containerStyle} activeOpacity={1}>
+    <View style={containerStyle} accessible accessibilityRole="text">
       <Text style={textStyle}>{label}</Text>
-    </TouchableOpacity>
+    </View>
   );
 }
+
+// Memoized — appears in dense tag lists (Profile, RestaurantDetail, check-in
+// review). Re-rendering all chips when a single tag toggles was the main
+// observable cost here.
+export default React.memo(TagChipInner);

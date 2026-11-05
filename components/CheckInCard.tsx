@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CheckIn } from '../types';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
-import TagChip from './TagChip';
-import { CheckInEntrance, CheckInStickers, BounceOnChange } from './CheckInAnimation';
+import { CheckInEntrance } from './CheckInAnimation';
+import ReportModal from './ReportModal';
 
 interface CheckInCardProps {
   checkIn: CheckIn;
@@ -12,26 +12,44 @@ interface CheckInCardProps {
   onMarkHelpful?: (checkInId: string) => void;
   helpfulLoading?: boolean;
   helpfulMarked?: boolean;
-  /** When true, show sparkle stickers + slightly bouncier entrance. */
+  /** When true, show a small NEW marker (no sparkle overlay). */
   highlightNew?: boolean;
   /** Stagger delay for entrance reveal (ms). */
   entranceDelay?: number;
+  /** When provided, show the ⋯ report/block menu. */
+  onBlocked?: (userId: string) => void;
 }
 
-const hypeLabel: Record<CheckIn['hypeRating'], { label: string; color: string; bg: string; emoji: string }> = {
-  worth_it: { label: 'Worth It', color: Colors.green, bg: '#E8F5EE', emoji: '✅' },
-  overhyped: { label: 'Overhyped', color: Colors.error, bg: '#FFF0F0', emoji: '🚫' },
-  not_sure: { label: 'Not Sure', color: Colors.textMuted, bg: '#F0F0F0', emoji: '🤔' },
+// Minimalist hype labels — text only, no emoji, no bg color
+const hypeLabel: Record<CheckIn['hypeRating'], { label: string; color: string }> = {
+  worth_it: { label: 'Worth It',  color: Colors.green },
+  overhyped: { label: 'Overhyped', color: Colors.error },
+  not_sure: { label: 'Not sure',  color: Colors.textMuted },
 };
 
-export default function CheckInCard({
+/**
+ * Minimalist check-in card. Shows: avatar + name + date, photo (if any),
+ * review text, single hype label, helpful button. Dropped:
+ *   - Repeat visitor / would-return / not-coming-back pills
+ *   - User bio line, ordered items line
+ *   - Taste tag chips row
+ *   - Sparkle overlay & highlighted background tint
+ * Those secondary details still live on the Restaurant Detail full view.
+ *
+ * Wrapped in React.memo — feeds on Restaurant Detail can render dozens of
+ * cards, and the parent re-renders when a new check-in is posted or
+ * "mark helpful" mutates a sibling. Memoizing skips the unchanged cards.
+ */
+function CheckInCardInner({
   checkIn,
   onMarkHelpful,
   helpfulLoading = false,
   helpfulMarked = false,
   highlightNew = false,
   entranceDelay = 0,
+  onBlocked,
 }: CheckInCardProps) {
+  const [reportVisible, setReportVisible] = useState(false);
   const hype = hypeLabel[checkIn.hypeRating];
   const helpfulInteractive = typeof onMarkHelpful === 'function';
   const helpfulDisabled = helpfulLoading || helpfulMarked;
@@ -40,109 +58,103 @@ export default function CheckInCard({
     if (!onMarkHelpful || helpfulDisabled) return;
     onMarkHelpful(checkIn.id);
   };
+
   return (
-    <CheckInEntrance delay={entranceDelay} highlight={highlightNew}>
-    <View style={[styles.container, highlightNew && styles.containerHighlighted]}>
-      {highlightNew && <CheckInStickers active emoji="✨" />}
-      {highlightNew && (
-        <View style={styles.newBadge} pointerEvents="none">
-          <Text style={styles.newBadgeText}>NEW</Text>
-        </View>
-      )}
-      <View style={styles.header}>
-        <Image source={{ uri: checkIn.userAvatar }} style={styles.avatar} />
-        <View style={styles.userInfo}>
-          <View style={styles.userNameRow}>
-            <Text style={styles.userName}>{checkIn.userName}</Text>
-            {checkIn.isRepeatVisit && (
-              <View style={styles.repeatPill}>
-                <Text style={styles.repeatPillText}>🔁 Repeat visitor</Text>
-              </View>
-            )}
+    <CheckInEntrance delay={entranceDelay} highlight={false}>
+      <View style={styles.container}>
+        {highlightNew && (
+          <View style={styles.newBadge} pointerEvents="none">
+            <Text style={styles.newBadgeText}>NEW</Text>
           </View>
-          <Text style={[styles.contextText, checkIn.locationVerified && styles.contextTextVerified]}>
-            {checkIn.locationVerified ? 'Verified visit · Local' : 'Verified by review'}
-          </Text>
-          {checkIn.userBio && (
-            <Text style={styles.userBio} numberOfLines={1}>{checkIn.userBio}</Text>
-          )}
-          <Text style={styles.date}>{checkIn.date}</Text>
-        </View>
-        <View style={styles.hypeColumn}>
-          <View style={[styles.hypePill, { backgroundColor: hype.bg }]}>
-            <Text style={styles.hypeEmoji}>{hype.emoji}</Text>
-            <Text style={[styles.hypeLabel, { color: hype.color }]}>{hype.label}</Text>
+        )}
+
+        <View style={styles.header}>
+          <Image source={{ uri: checkIn.userAvatar }} style={styles.avatar} />
+          <View style={styles.userInfo}>
+            <Text style={styles.userName} numberOfLines={1}>{checkIn.userName}</Text>
+            <Text style={styles.meta} numberOfLines={1}>
+              {checkIn.date}{checkIn.locationVerified ? ' · Verified visit' : ''}
+            </Text>
           </View>
-          {checkIn.wouldReturn === true && (
-            <View style={styles.returnPill}>
-              <Text style={styles.returnPillText}>Would return</Text>
-            </View>
-          )}
-          {checkIn.wouldReturn === false && (
-            <View style={styles.noReturnPill}>
-              <Text style={styles.noReturnPillText}>Not coming back</Text>
-            </View>
-          )}
+          <Text style={[styles.hypeLabel, { color: hype.color }]}>{hype.label}</Text>
         </View>
-      </View>
 
-      {checkIn.photos.length > 0 && (
-        <Image source={{ uri: checkIn.photos[0] }} style={styles.photo} />
-      )}
+        {checkIn.photos.length > 0 && (
+          <Image source={{ uri: checkIn.photos[0] }} style={styles.photo} />
+        )}
 
-      <View style={styles.reviewBlock}>
         <Text style={styles.review} numberOfLines={5}>{checkIn.review}</Text>
-      </View>
 
-      {checkIn.orderedItems && checkIn.orderedItems.length > 0 && (
-        <Text style={styles.orderedLine} numberOfLines={2}>
-          <Text style={styles.orderedPrefix}>Ordered: </Text>
-          {checkIn.orderedItems.join(', ')}
-        </Text>
-      )}
-
-      <View style={styles.tagsRow}>
-        {checkIn.tasteTags.slice(0, 3).map((tag) => (
-          <TagChip key={tag} label={tag} variant="primary" />
-        ))}
-      </View>
-
-      <View style={styles.footer}>
-        {helpfulInteractive ? (
+        <View style={styles.footer}>
+          {/* ⋯ report/block menu — visible whenever onBlocked is supplied,
+              which indicates the check-in is in a public feed (not a preview). */}
           <TouchableOpacity
-            onPress={handleHelpfulPress}
-            disabled={helpfulDisabled}
-            activeOpacity={0.7}
-            style={[
-              styles.helpfulBtn,
-              helpfulMarked && styles.helpfulBtnMarked,
-              helpfulDisabled && !helpfulMarked && styles.helpfulBtnDisabled,
-            ]}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            onPress={() => setReportVisible(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.reportBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Report or block options for this check-in"
           >
-            {helpfulLoading ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
-            ) : (
-              <BounceOnChange trigger={helpfulMarked}>
+            <Ionicons name="ellipsis-horizontal" size={14} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          {helpfulInteractive ? (
+            <TouchableOpacity
+              onPress={handleHelpfulPress}
+              disabled={helpfulDisabled}
+              activeOpacity={0.7}
+              style={[
+                styles.helpfulBtn,
+                helpfulDisabled && !helpfulMarked && styles.helpfulBtnDisabled,
+              ]}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel={
+                helpfulMarked
+                  ? `You marked this check-in helpful. ${checkIn.helpful} people found it helpful.`
+                  : `Mark this check-in helpful. ${checkIn.helpful} people have so far.`
+              }
+              accessibilityState={{ disabled: helpfulDisabled, selected: helpfulMarked }}
+              accessibilityHint={helpfulMarked ? undefined : 'Adds 1 to the helpful count'}
+            >
+              {helpfulLoading ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
                 <Ionicons
                   name={helpfulMarked ? 'thumbs-up' : 'thumbs-up-outline'}
                   size={14}
                   color={helpfulMarked ? Colors.primary : Colors.textMuted}
                 />
-              </BounceOnChange>
-            )}
-            <Text style={[styles.helpfulCount, helpfulMarked && styles.helpfulCountMarked]}>
-              {checkIn.helpful} helpful
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.helpfulRow}>
-            <Ionicons name="thumbs-up-outline" size={14} color={Colors.textMuted} />
-            <Text style={styles.helpfulCount}>{checkIn.helpful} helpful</Text>
-          </View>
-        )}
+              )}
+              <Text style={[styles.helpfulCount, helpfulMarked && styles.helpfulCountMarked]}>
+                {checkIn.helpful} helpful
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View
+              style={styles.helpfulRow}
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={`${checkIn.helpful} people found this helpful`}
+            >
+              <Ionicons name="thumbs-up-outline" size={14} color={Colors.textMuted} />
+              <Text style={styles.helpfulCount}>{checkIn.helpful} helpful</Text>
+            </View>
+          )}
+        </View>
       </View>
-    </View>
+
+      <ReportModal
+        visible={reportVisible}
+        checkInId={checkIn.id}
+        authorUserId={checkIn.userId}
+        authorName={checkIn.userName}
+        onClose={() => setReportVisible(false)}
+        onBlocked={(userId) => {
+          setReportVisible(false);
+          onBlocked?.(userId);
+        }}
+      />
     </CheckInEntrance>
   );
 }
@@ -155,82 +167,33 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  containerHighlighted: {
-    borderColor: Colors.primary,
-    backgroundColor: '#FFFBF4',
   },
   newBadge: {
     position: 'absolute',
     top: Spacing.sm,
     right: Spacing.sm,
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
     zIndex: 2,
   },
   newBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
   },
-  userNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    flexWrap: 'wrap',
-  },
-  contextText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginTop: 1,
-  },
-  contextTextVerified: {
-    color: Colors.green,
-    fontWeight: '600',
-  },
-  repeatPill: {
-    backgroundColor: Colors.secondary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  repeatPillText: {
-    fontSize: 10,
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  hypePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-  },
-  hypeEmoji: {
-    fontSize: 13,
-  },
-  reviewBlock: {
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.border,
-    paddingLeft: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: Spacing.sm,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   userInfo: {
     flex: 1,
@@ -240,23 +203,14 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontWeight: '600',
   },
-  date: {
+  meta: {
     ...Typography.caption,
     color: Colors.textMuted,
+    marginTop: 1,
   },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5EE',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    gap: 3,
-  },
-  verifiedText: {
+  hypeLabel: {
     ...Typography.caption,
-    color: Colors.green,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   photo: {
     width: '100%',
@@ -268,20 +222,12 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.text,
     lineHeight: 22,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     marginBottom: Spacing.sm,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-  },
-  hypeLabel: {
-    ...Typography.label,
-    fontWeight: '600',
   },
   helpfulRow: {
     flexDirection: 'row',
@@ -297,15 +243,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    backgroundColor: '#F7F5F1',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  helpfulBtnMarked: {
-    backgroundColor: Colors.secondary,
-    borderColor: Colors.primary,
+    paddingVertical: 4,
   },
   helpfulBtnDisabled: {
     opacity: 0.6,
@@ -314,47 +252,11 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
   },
-  userBio: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: 2,
-    marginBottom: 1,
-  },
-  hypeColumn: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  returnPill: {
-    backgroundColor: '#E8F5EE',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  returnPillText: {
-    fontSize: 10,
-    color: Colors.green,
-    fontWeight: '700',
-  },
-  noReturnPill: {
-    backgroundColor: '#F0F0F0',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  noReturnPillText: {
-    fontSize: 10,
-    color: Colors.textMuted,
-    fontWeight: '700',
-  },
-  orderedLine: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-    lineHeight: 17,
-  },
-  orderedPrefix: {
-    fontWeight: '700',
-    color: Colors.text,
+  reportBtn: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    marginRight: Spacing.sm,
   },
 });
+
+export default React.memo(CheckInCardInner);

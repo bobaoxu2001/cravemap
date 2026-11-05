@@ -11,6 +11,16 @@ function requireClient() {
   return client;
 }
 
+const DEFAULT_PROGRESS: FoundingScoutProgress = {
+  tastePassport: false,
+  threeCheckIns: false,
+  verifiedCheckIn: false,
+  twoInvites: false,
+  completedCount: 0,
+  totalCount: 4,
+  percentComplete: 0,
+};
+
 interface FoundingScoutRow {
   user_id: string;
   taste_passport: boolean | null;
@@ -20,37 +30,53 @@ interface FoundingScoutRow {
 }
 
 export async function getFoundingScoutProgress(userId: string): Promise<FoundingScoutProgress> {
-  const { data, error } = await requireClient()
-    .from('founding_scout_progress')
-    .select('user_id, taste_passport, three_check_ins, verified_check_in, two_invites')
-    .eq('user_id', userId)
-    .single();
+  try {
+    const { data, error } = await requireClient()
+      .from('founding_scout_progress')
+      .select('user_id, taste_passport, three_check_ins, verified_check_in, two_invites')
+      .eq('user_id', userId)
+      .single();
 
-  if (error) {
-    throw new Error(error.message || 'Failed to load Founding Scout progress.');
+    if (error) {
+      if (__DEV__) {
+        console.warn('[CraveMap] getFoundingScoutProgress failed:', error.message);
+      }
+      return DEFAULT_PROGRESS;
+    }
+
+    const row = data as unknown as FoundingScoutRow;
+    const tastePassport = row.taste_passport ?? false;
+    const threeCheckIns = row.three_check_ins ?? false;
+    const verifiedCheckIn = row.verified_check_in ?? false;
+    const twoInvites = row.two_invites ?? false;
+    const completedCount = [tastePassport, threeCheckIns, verifiedCheckIn, twoInvites].filter(Boolean).length;
+    const totalCount = 4;
+
+    return {
+      tastePassport,
+      threeCheckIns,
+      verifiedCheckIn,
+      twoInvites,
+      completedCount,
+      totalCount,
+      percentComplete: completedCount / totalCount,
+    };
+  } catch (err) {
+    if (__DEV__) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[CraveMap] getFoundingScoutProgress threw unexpectedly:', msg);
+    }
+    return DEFAULT_PROGRESS;
   }
-
-  const row = data as unknown as FoundingScoutRow;
-  const tastePassport = row.taste_passport ?? false;
-  const threeCheckIns = row.three_check_ins ?? false;
-  const verifiedCheckIn = row.verified_check_in ?? false;
-  const twoInvites = row.two_invites ?? false;
-  const completedCount = [tastePassport, threeCheckIns, verifiedCheckIn, twoInvites].filter(Boolean).length;
-  const totalCount = 4;
-
-  return {
-    tastePassport,
-    threeCheckIns,
-    verifiedCheckIn,
-    twoInvites,
-    completedCount,
-    totalCount,
-    percentComplete: completedCount / totalCount,
-  };
 }
 
 export async function getRewardTasks(userId: string): Promise<RewardTask[]> {
-  const progress = await getFoundingScoutProgress(userId);
+  let progress: FoundingScoutProgress;
+  try {
+    progress = await getFoundingScoutProgress(userId);
+  } catch {
+    progress = DEFAULT_PROGRESS;
+  }
   return [
     { key: 'tastePassport', label: 'Complete Taste Passport', done: progress.tastePassport, points: 50 },
     { key: 'threeCheckIns', label: 'Post 3 real check-ins', done: progress.threeCheckIns, points: 150 },

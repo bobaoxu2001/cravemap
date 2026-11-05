@@ -4,7 +4,7 @@ import { Image, ImageStyle, StyleProp } from 'react-native';
 const MASCOT_SOURCES: Record<string, ReturnType<typeof require>> = {
   'Spicy Adventurer': require('../assets/mascots/spicy-adventurer.png'),
   'Comfort Seeker': require('../assets/mascots/comfort-food-soul.png'),
-  'Healthy Foodie': require('../assets/mascots/hidden-gem-hunter.png'),
+  'Healthy Foodie': require('../assets/mascots/healthy-foodie.png'),
   'Authentic Explorer': require('../assets/mascots/hidden-gem-hunter.png'),
 };
 

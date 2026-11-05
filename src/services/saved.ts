@@ -39,18 +39,12 @@ export function saveRestaurant(userId: string, restaurantId: string): Promise<vo
   if (!USE_SUPABASE) {
     return mock.saveRestaurant(userId, restaurantId);
   }
-  return withMockFallback(
-    () => supabase.saveRestaurant(userId, restaurantId),
-    () => mock.saveRestaurant(userId, restaurantId)
-  );
+  return supabase.saveRestaurant(userId, restaurantId);
 }
 
 export function unsaveRestaurant(userId: string, restaurantId: string): Promise<void> {
   if (!USE_SUPABASE) {
     return mock.unsaveRestaurant(userId, restaurantId);
   }
-  return withMockFallback(
-    () => supabase.unsaveRestaurant(userId, restaurantId),
-    () => mock.unsaveRestaurant(userId, restaurantId)
-  );
+  return supabase.unsaveRestaurant(userId, restaurantId);
 }

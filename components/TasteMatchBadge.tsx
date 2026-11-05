@@ -13,16 +13,25 @@ function getColor(percent: number): string {
   return Colors.textMuted;
 }
 
-export default function TasteMatchBadge({ percent, showLabel = false }: TasteMatchBadgeProps) {
+function TasteMatchBadgeInner({ percent, showLabel = false }: TasteMatchBadgeProps) {
   const color = getColor(percent);
   return (
-    <View style={[styles.badge, { backgroundColor: color + '22', borderColor: color + '44' }]}>
+    <View
+      style={[styles.badge, { backgroundColor: color + '22', borderColor: color + '44' }]}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`${percent} percent taste match`}
+    >
       <Text style={[styles.text, { color }]}>
         {percent}%{showLabel ? ' match' : ''}
       </Text>
     </View>
   );
 }
+
+// Memoized — appears in every restaurant card and detail screen header,
+// so re-renders cost up here.
+export default React.memo(TasteMatchBadgeInner);
 
 const styles = StyleSheet.create({
   badge: {
