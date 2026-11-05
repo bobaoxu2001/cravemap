@@ -11,7 +11,7 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 }
 
-async function boundedBody(request: Request, maximum: number): Promise<Uint8Array> {
+async function boundedBody(request: Request, maximum: number): Promise<ArrayBuffer> {
   const reader = request.body?.getReader();
   if (!reader) throw new Error('empty');
   const chunks: Uint8Array[] = [];
@@ -31,7 +31,7 @@ async function boundedBody(request: Request, maximum: number): Promise<Uint8Arra
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  return bytes;
+  return bytes.buffer;
 }
 
 /** Web-standard handler is separately testable without Deno, credentials or paid API calls. */

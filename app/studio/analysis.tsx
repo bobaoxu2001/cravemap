@@ -164,7 +164,7 @@ export default function StudioAnalysis() {
 // ── State components ──────────────────────────────────────────────────────────
 
 function EmptyState({ onRun }: { onRun: () => void }) {
-  const hasKey = Boolean(process.env.EXPO_PUBLIC_GEMINI_API_KEY);
+  const hasKey = process.env.EXPO_PUBLIC_STUDIO_AI_ENABLED === 'true';
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={styles.emptyHero}>
@@ -495,7 +495,7 @@ function DemoBanner() {
     <View style={styles.demoBanner}>
       <Ionicons name="information-circle-outline" size={16} color="#FFB800" />
       <Text style={styles.demoBannerText}>
-        Demo mode — add EXPO_PUBLIC_GEMINI_API_KEY to .env to use real Gemini output.
+        Demo mode — live AI is enabled by the administrator after the private proxy is configured.
       </Text>
     </View>
   );

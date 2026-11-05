@@ -60,6 +60,9 @@ The app runs in **mock mode** by default — no backend required. You'll see `[C
    supabase/migrations/002_ugc_compliance.sql
    supabase/migrations/003_studio_schema.sql
    supabase/migrations/004_studio_writes.sql
+   supabase/migrations/005_revenue.sql
+   supabase/migrations/006_evidence_rpc.sql
+   supabase/migrations/007_verified_revenue_and_scoped_evidence.sql
    supabase/storage.sql
    supabase/seed.sql
    ```
@@ -79,15 +82,14 @@ Studio runs in **demo mode** by default — no API key needed. Demo mode returns
 
 To run live AI generation:
 
-1. Get a Gemini API key at [aistudio.google.com](https://aistudio.google.com) → **Get API Key**
-2. Add to `.env`:
-   ```
-   EXPO_PUBLIC_STUDIO_AI_ENABLED=true
-   ```
+1. Deploy `supabase/functions/ai-proxy` with Supabase JWT verification enabled.
+2. Set `GEMINI_API_KEY` as a Supabase server secret; optionally select `GEMINI_MODEL`.
+3. Set `EXPO_PUBLIC_STUDIO_AI_ENABLED=true` in the app environment and sign in.
+4. For live speech transcription, configure the server-only `OPENAI_API_KEY` and
+   set `EXPO_PUBLIC_VOICE_AI_ENABLED=true`.
 
-> ⚠️ **Security note:** `EXPO_PUBLIC_*` variables are inlined into the JavaScript bundle at build time. This is acceptable for hackathon / pilot builds but must be replaced with a Supabase Edge Function before wide distribution. See `src/services/studio/gemini.ts` for the migration path.
-
-> ⚠️ **Never commit `.env` to git.** It is already in `.gitignore`.
+Provider keys belong only on the server. Public app variables are feature flags
+and Supabase connection information. Never commit `.env`.
 
 ---
 
@@ -100,8 +102,8 @@ To run live AI generation:
 | UI | React Native 0.81 |
 | Auth & DB | Supabase (Postgres + RLS) |
 | Storage | Supabase Storage |
-| Diner AI | OpenAI (taste matching) |
-| Studio AI | Gemini 2.0 Flash (menu analysis, campaign generation) |
+| Diner matching | Local keyword/taste rules; optional server-proxied speech transcription |
+| Studio AI | Gemini configured server-side (menu analysis, campaign generation) |
 | Navigation | expo-router file-based routing |
 
 ---

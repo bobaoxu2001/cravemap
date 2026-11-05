@@ -194,7 +194,7 @@ function EmptyState({
   onRun: () => void;
   onAnalysis: () => void;
 }) {
-  const hasKey = Boolean(process.env.EXPO_PUBLIC_GEMINI_API_KEY);
+  const hasKey = process.env.EXPO_PUBLIC_STUDIO_AI_ENABLED === 'true';
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={styles.heroWrap}>
@@ -610,7 +610,7 @@ function DemoBanner() {
     <View style={styles.demoBanner}>
       <Ionicons name="information-circle-outline" size={16} color={S.amber} />
       <Text style={styles.demoBannerText}>
-        Demo mode — add EXPO_PUBLIC_GEMINI_API_KEY to .env for real AI-generated campaigns.
+        Demo mode — live campaigns require the configured private AI proxy.
       </Text>
     </View>
   );
