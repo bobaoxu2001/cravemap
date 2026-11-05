@@ -165,3 +165,10 @@ SDK 54 remains pinned. The lockfile uses `.npmrc` to avoid installing unrelated
 optional SDK 58 peers. Tested overrides patch PostCSS, image-size and URI parsing;
 `npm ci`, `npm run typecheck`, `npm test` and a web export are the review gates.
 Native iOS/Android builds still need device verification before distribution.
+
+## Production backend status · 2026-11-05
+
+Studio migrations 003–007 and the authenticated AI proxy are deployed. Production
+merchant-isolation, payment-permission and HTTP authentication checks passed.
+Live AI generation remains disabled until provider secrets are configured and a
+provider call is verified. See [deployment details and repeatable checks](docs/BACKEND_DEPLOYMENT_2026-11-05.md).
