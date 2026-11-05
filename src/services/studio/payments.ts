@@ -9,10 +9,11 @@
 //                                Link redirect, to mirror the upstream payment
 //                                into our DB for in-app evidence.
 //
-// We deliberately do NOT call any Stripe API directly. Stripe Dashboard is
-// the upstream source of truth — the rows we write here are evidence/UX only.
+// Client reports always remain pending. Only a trusted server verification
+// may set succeeded + verified_at; reports never establish paid revenue.
 // ============================================================================
 
+import { summarizeVerifiedRevenue } from './revenuePolicy';
 import { getSupabaseClient } from '../../lib/supabase';
 import { getMerchantForUser } from './runMenuAnalysis';
 
@@ -42,14 +43,15 @@ export interface MerchantPayment {
   productName: string | null;
   externalPaymentId: string | null;
   createdAt: string;
+  verifiedAt: string | null;
 }
 
 export interface RevenueSummary {
-  /** Sum of amount_cents across succeeded payments. */
+  /** Sum of verified succeeded USD payments; other currencies stay itemized. */
   totalCents: number;
-  /** Count of succeeded payments. */
+  /** Count of verified succeeded payments in the summary currency. */
   succeededCount: number;
-  /** Currency of the most recent payment (USD if none). */
+  /** Summary currency, fixed to USD. */
   currency: string;
   /** All payments, newest first. */
   payments: MerchantPayment[];
@@ -76,6 +78,7 @@ interface PaymentRow {
   product_name: string | null;
   external_payment_id: string | null;
   created_at: string;
+  verified_at: string | null;
 }
 
 function mapRow(row: PaymentRow): MerchantPayment {
@@ -88,6 +91,7 @@ function mapRow(row: PaymentRow): MerchantPayment {
     productName: row.product_name,
     externalPaymentId: row.external_payment_id,
     createdAt: row.created_at,
+    verifiedAt: row.verified_at ?? null,
   };
 }
 
@@ -102,7 +106,7 @@ export async function getMerchantPayments(userId: string): Promise<MerchantPayme
   const { data, error } = await client
     .from('merchant_payments')
     .select(
-      'id, amount_cents, currency, payment_provider, payment_status, product_name, external_payment_id, created_at',
+      'id, amount_cents, currency, payment_provider, payment_status, product_name, external_payment_id, created_at, verified_at',
     )
     .eq('merchant_id', merchant.merchantId)
     .order('created_at', { ascending: false });
@@ -114,13 +118,7 @@ export async function getMerchantPayments(userId: string): Promise<MerchantPayme
 /** Aggregates the signed-in merchant's payments for the Revenue Dashboard. */
 export async function getRevenueSummary(userId: string): Promise<RevenueSummary> {
   const payments = await getMerchantPayments(userId);
-  const succeeded = payments.filter((p) => p.paymentStatus === 'succeeded');
-  return {
-    totalCents: succeeded.reduce((sum, p) => sum + p.amountCents, 0),
-    succeededCount: succeeded.length,
-    currency: payments[0]?.currency ?? STARTER_PACK.currency,
-    payments,
-  };
+  return { ...summarizeVerifiedRevenue(payments), payments };
 }
 
 // ── Write ─────────────────────────────────────────────────────────────────────
@@ -149,12 +147,12 @@ async function insertPayment(
       amount_cents: opts.amountCents ?? STARTER_PACK.priceCents,
       currency: opts.currency ?? STARTER_PACK.currency,
       payment_provider: provider,
-      payment_status: 'succeeded',
+      payment_status: 'pending',
       product_name: opts.productName ?? STARTER_PACK.name,
       external_payment_id: opts.externalPaymentId ?? null,
     })
     .select(
-      'id, amount_cents, currency, payment_provider, payment_status, product_name, external_payment_id, created_at',
+      'id, amount_cents, currency, payment_provider, payment_status, product_name, external_payment_id, created_at, verified_at',
     )
     .single();
 

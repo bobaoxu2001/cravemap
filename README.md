@@ -14,7 +14,7 @@ Find restaurants matched to your taste, mood, budget, and lifestyle — not just
 - **Mood & Budget Fit** — filter by vibe, price, and what you're in the mood for
 - **Real Check-ins** — see honest verdicts ("Worth It / Overhyped") from people with your taste
 - **City Map** — browse spots near you across NYC, LA, Bay Area, Seattle, and Boston
-- **Invite-only beta** — 847 Founding Food Scouts in, 153 diner spots left
+- **Invite-only beta** — Founding Food Scout beta; enrollment counts are not verified
 
 ---
 
@@ -82,7 +82,7 @@ To run live AI generation:
 1. Get a Gemini API key at [aistudio.google.com](https://aistudio.google.com) → **Get API Key**
 2. Add to `.env`:
    ```
-   EXPO_PUBLIC_GEMINI_API_KEY=your_key_here
+   EXPO_PUBLIC_STUDIO_AI_ENABLED=true
    ```
 
 > ⚠️ **Security note:** `EXPO_PUBLIC_*` variables are inlined into the JavaScript bundle at build time. This is acceptable for hackathon / pilot builds but must be replaced with a Supabase Edge Function before wide distribution. See `src/services/studio/gemini.ts` for the migration path.
@@ -138,3 +138,28 @@ supabase/
     003_studio_schema.sql  # merchant_profiles, ai_menu_analyses, ai_campaigns, logs
     004_studio_writes.sql  # INSERT policies for client-side hackathon build
 ```
+
+## AI credential boundary
+
+Provider keys are never Expo public variables. Deploy `supabase/functions/ai-proxy`
+with Supabase JWT verification enabled, set `GEMINI_API_KEY` / `OPENAI_API_KEY` as
+server secrets, and enable the corresponding public feature flag. The proxy
+validates the signed-in user through Supabase Auth, limits request sizes and
+upstream timeouts, and redacts provider errors. It has not been deployed by this
+local review; configure per-user quotas before opening paid inference broadly.
+`npm test` exercises the handler with mocked upstreams and no paid API calls.
+
+## Payment and evidence boundary
+
+Apply migration `007_verified_revenue_and_scoped_evidence.sql` after migrations
+001–006. Client payment reports remain pending and do not count as revenue.
+Only a trusted server may mark a payment succeeded and set `verified_at` after
+provider verification. No such webhook is deployed by this review. The evidence
+RPC now runs with caller RLS and exposes only that merchant's records. Legacy
+self-reported successes without verification remain excluded. USD summary
+amounts never combine currencies.
+
+SDK 54 remains pinned. The lockfile uses `.npmrc` to avoid installing unrelated
+optional SDK 58 peers. Tested overrides patch PostCSS, image-size and URI parsing;
+`npm ci`, `npm run typecheck`, `npm test` and a web export are the review gates.
+Native iOS/Android builds still need device verification before distribution.

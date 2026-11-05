@@ -275,7 +275,7 @@ export default function Welcome() {
               ))}
             </View>
             <Text style={styles.socialProof}>
-              847 Founding Food Scouts in. <Text style={{ color: Colors.primary, fontWeight: '700' }}>153 diner spots left.</Text>
+              Join the Founding Food Scout beta. Discover food that fits your taste.
             </Text>
           </View>
 

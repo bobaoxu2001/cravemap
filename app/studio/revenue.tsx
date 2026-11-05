@@ -137,13 +137,13 @@ export default function StudioRevenue() {
           <View style={styles.statsRow}>
             <StatCard
               icon="💰"
-              label="Total revenue"
+              label="Verified revenue (USD)"
               value={summary ? formatMoney(summary.totalCents, summary.currency) : '$0'}
               accent={S.green}
             />
             <StatCard
               icon="✅"
-              label="Successful payments"
+              label="Verified payments"
               value={String(summary?.succeededCount ?? 0)}
               accent={S.blue}
             />
@@ -217,7 +217,7 @@ function StatCard({
 
 function PaymentRow({ payment }: { payment: MerchantPayment }) {
   const statusColor =
-    payment.paymentStatus === 'succeeded'
+    payment.paymentStatus === 'succeeded' && payment.verifiedAt
       ? S.green
       : payment.paymentStatus === 'failed' || payment.paymentStatus === 'canceled'
         ? S.red
@@ -236,7 +236,7 @@ function PaymentRow({ payment }: { payment: MerchantPayment }) {
         </Text>
         <View style={styles.paymentMeta}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={styles.paymentStatus}>{payment.paymentStatus}</Text>
+          <Text style={styles.paymentStatus}>{payment.paymentStatus === 'succeeded' && !payment.verifiedAt ? 'unverified' : payment.paymentStatus}</Text>
           <Text style={styles.paymentSep}>·</Text>
           <Text style={styles.paymentProvider}>{payment.paymentProvider}</Text>
           <Text style={styles.paymentSep}>·</Text>

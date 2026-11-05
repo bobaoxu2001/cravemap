@@ -166,12 +166,12 @@ export default function StudioUpgrade() {
             <Ionicons name="checkmark-circle" size={18} color={S.green} />
             <View style={{ flex: 1 }}>
               <Text style={styles.successTitle}>
-                Payment recorded — {formatMoney(recorded.amount)}
+                Payment report pending — {formatMoney(recorded.amount)}
               </Text>
               <Text style={styles.successBody}>
                 {recorded.provider === 'stripe'
-                  ? 'Stripe payment logged in CraveMap. Stripe Dashboard remains the upstream record.'
-                  : 'Manual payment logged for evidence. Visible in Revenue Dashboard.'}
+                  ? 'Payment report saved. Revenue updates only after server verification.'
+                  : 'Manual report saved as pending; it does not count as verified revenue.'}
               </Text>
               <TouchableOpacity onPress={() => router.push('/studio/revenue')} activeOpacity={0.85}>
                 <Text style={styles.successLink}>View Revenue Dashboard →</Text>
@@ -219,7 +219,7 @@ export default function StudioUpgrade() {
               disabled={busy !== null}
             >
               <Ionicons name="checkmark-done-outline" size={16} color={S.blue} />
-              <Text style={styles.secondaryCtaText}>I've completed Stripe payment — record it</Text>
+              <Text style={styles.secondaryCtaText}>Report payment for verification</Text>
             </TouchableOpacity>
           </>
         ) : (

@@ -45,7 +45,7 @@ function requireClient() {
 }
 
 function hasGeminiKey(): boolean {
-  return Boolean(process.env.EXPO_PUBLIC_GEMINI_API_KEY);
+  return process.env.EXPO_PUBLIC_STUDIO_AI_ENABLED === 'true';
 }
 
 async function getLatestAnalysisForMerchant(

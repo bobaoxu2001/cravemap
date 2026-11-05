@@ -9,7 +9,9 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npx expo install --check",
-    "preflight": "bash scripts/preflight.sh"
+    "preflight": "bash scripts/preflight.sh",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "postinstall": "node scripts/patch-metro-image-size.cjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -39,5 +41,12 @@
     "@types/react": "~19.1.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "postcss": "8.5.32",
+    "expo-router": "$expo-router",
+    "query-string": "9.4.1",
+    "decode-uri-component": "0.5.1",
+    "image-size": "2.0.4"
+  }
 }

@@ -1,24 +1,8 @@
-// ============================================================================
-// CraveMap Studio — Gemini AI client
-// ============================================================================
-//
-// SECURITY WARNING ⚠️
-// EXPO_PUBLIC_* variables are inlined into the JavaScript bundle at build
-// time and are therefore readable by anyone who downloads the app.
-// This matches the existing project pattern (see EXPO_PUBLIC_OPENAI_API_KEY)
-// and is acceptable for a hackathon / early-access build, but MUST be
-// replaced before wide distribution.
-//
-// Migration path → Supabase Edge Function:
-//   1. Create supabase/functions/studio-agent/index.ts
-//   2. Move callGeminiStructured() there (GEMINI_API_KEY as a secret, not public)
-//   3. Replace the fetch() call below with a call to your Edge Function URL
-//   4. Remove EXPO_PUBLIC_GEMINI_API_KEY from .env and EAS secrets
-//
-// ============================================================================
+// CraveMap Studio AI calls use the authenticated Supabase proxy.
+// Provider credentials are server-side secrets.
+import { aiProxyCredentials } from '../aiProxy';
 
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_MODEL = 'gemini-2.0-flash';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
 
 // A stalled connection must not hang the Studio UI indefinitely (it promises
 // results "in under 30 seconds"). Abort and surface a network error instead.
@@ -73,20 +57,11 @@ export interface GeminiResult<T> {
 export async function callGeminiStructured<T>(
   opts: GeminiCallOptions,
 ): Promise<GeminiResult<T>> {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-
-  if (!apiKey) {
-    throw new GeminiConfigError(
-      'EXPO_PUBLIC_GEMINI_API_KEY is not set. ' +
-        'Add it to your .env file to enable CraveMap Studio AI features.',
-    );
-  }
-
-  const model = opts.model ?? DEFAULT_MODEL;
-  // Use header auth instead of `?key=` query string — keeps the key out of
-  // URL logs / proxy access logs / error reporters. Gemini v1beta supports
-  // both forms; header is the documented preferred form.
-  const url = `${GEMINI_BASE}/${model}:generateContent`;
+  let proxy: Awaited<ReturnType<typeof aiProxyCredentials>>;
+  try { proxy = await aiProxyCredentials(); }
+  catch { throw new GeminiConfigError('Sign in and configure the AI proxy to use Studio AI.'); }
+  const model = DEFAULT_MODEL;
+  const url = proxy.url;
 
   const body: GeminiRequestBody = {
     contents: [{ role: 'user', parts: [{ text: opts.userPrompt }] }],
@@ -102,7 +77,7 @@ export async function callGeminiStructured<T>(
   }
 
   const start = Date.now();
-  const res = await fetchWithRetry(url, body, apiKey);
+  const res = await fetchWithRetry(url, body, proxy.headers);
   const latency_ms = Date.now() - start;
 
   if (!res.ok) {
@@ -141,7 +116,7 @@ export async function callGeminiStructured<T>(
     throw new GeminiParseError(text);
   }
 
-  return { data, model_used: model, provider: 'google', latency_ms };
+  return { data, model_used: raw.modelVersion ?? model, provider: 'google', latency_ms };
 }
 
 // ── Fetch with timeout + retry ───────────────────────────────────────────────
@@ -152,7 +127,7 @@ export async function callGeminiStructured<T>(
  * 403) are returned as-is for the caller to surface. Throws GeminiNetworkError
  * only after exhausting retries.
  */
-async function fetchWithRetry(url: string, body: GeminiRequestBody, apiKey: string): Promise<Response> {
+async function fetchWithRetry(url: string, body: GeminiRequestBody, headers: Record<string, string>): Promise<Response> {
   let lastCause: unknown;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -161,7 +136,7 @@ async function fetchWithRetry(url: string, body: GeminiRequestBody, apiKey: stri
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
@@ -196,7 +171,7 @@ async function fetchWithRetry(url: string, body: GeminiRequestBody, apiKey: stri
  */
 export function friendlyGeminiMessage(err: unknown): string {
   if (err instanceof GeminiConfigError) {
-    return 'AI features are not configured yet. Add your API key to enable them.';
+    return 'AI features are not configured yet. Sign in or contact the administrator to enable them.';
   }
   if (err instanceof GeminiNetworkError) {
     return 'Couldn’t reach the AI service. Check your connection and try again.';
@@ -277,6 +252,7 @@ interface GeminiRequestBody {
 }
 
 interface GeminiApiResponse {
+  modelVersion?: string;
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string }> };
     finishReason?: string;
