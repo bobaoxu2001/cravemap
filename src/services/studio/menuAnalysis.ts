@@ -5,7 +5,7 @@
 // directly to the ai_menu_analyses table columns.
 // ============================================================================
 
-import { callGeminiStructured, GeminiResult } from './gemini';
+import { assertGeminiShape, callGeminiStructured, GeminiResult } from './gemini';
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 
@@ -238,6 +238,23 @@ Analyze this menu and return:
     responseSchema: MENU_ANALYSIS_SCHEMA,
     temperature: 0.4,
   });
+
+  // Guard against Gemini omitting required top-level fields under load.
+  // Downstream UI assumes arrays + objects exist for the list/object fields.
+  assertGeminiShape(
+    result.data,
+    {
+      summary: { type: 'string' },
+      top_dishes: { type: 'array' },
+      customer_personas: { type: 'array' },
+      taste_tags: { type: 'array' },
+      pricing_insights: { type: 'object' },
+      health_positioning: { type: 'object' },
+      content_angles: { type: 'array' },
+      risks: { type: 'array' },
+    },
+    'MenuAnalysis',
+  );
 
   return { ...result, data: normalizeMenuAnalysisOutput(result.data) };
 }

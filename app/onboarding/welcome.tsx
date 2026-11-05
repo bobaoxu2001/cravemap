@@ -8,7 +8,7 @@ import {
   SafeAreaView,
   TextInput,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -44,8 +44,21 @@ const features = [
   },
 ];
 
+/**
+ * Only allow same-app redirect targets. Defends against a deep link that
+ * passes `?next=https://evil.example.com` from steering users off-app.
+ */
+function safeNextPath(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  if (!raw.startsWith('/')) return null;
+  if (raw.startsWith('//')) return null; // protocol-relative
+  return raw;
+}
+
 export default function Welcome() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ next?: string }>();
+  const nextPath = safeNextPath(params.next);
   const {
     isAuthenticated,
     isProfileComplete,
@@ -65,9 +78,15 @@ export default function Welcome() {
 
   useEffect(() => {
     if (isSupabaseMode && isAuthenticated && !profileLoading) {
+      // Honor ?next= if provided (e.g. coming from a gated Studio screen),
+      // otherwise fall back to the default diner routing.
+      if (nextPath) {
+        router.replace(nextPath as never);
+        return;
+      }
       router.replace(isProfileComplete ? '/(tabs)/home' : '/onboarding/taste-passport');
     }
-  }, [isAuthenticated, isProfileComplete, isSupabaseMode, profileLoading, router]);
+  }, [isAuthenticated, isProfileComplete, isSupabaseMode, nextPath, profileLoading, router]);
 
   const handleAuthSubmit = async () => {
     const trimmedEmail = email.trim();
@@ -87,12 +106,14 @@ export default function Welcome() {
     try {
       if (authMode === 'sign-in') {
         await signIn(trimmedEmail, password);
-        router.replace('/(tabs)/home');
+        router.replace((nextPath ?? '/(tabs)/home') as never);
       } else {
         await signUp(trimmedEmail, password, {
           name: name.trim() || trimmedEmail.split('@')[0],
         });
-        router.replace('/onboarding/taste-passport');
+        // For sign-up, a Studio `next` target should still go straight there
+        // (their merchant onboarding is the relevant next step, not taste passport).
+        router.replace((nextPath ?? '/onboarding/taste-passport') as never);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed. Please try again.';
@@ -254,7 +275,7 @@ export default function Welcome() {
               ))}
             </View>
             <Text style={styles.socialProof}>
-              847 Founding Food Scouts in. <Text style={{ color: Colors.primary, fontWeight: '700' }}>153 diner spots left.</Text>
+              Join the Founding Food Scout beta. Discover food that fits your taste.
             </Text>
           </View>
 

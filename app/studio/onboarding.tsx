@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useStudioAuthGate } from '../../src/hooks/useStudioAuthGate';
 import { saveMerchantOnboarding } from '../../src/services/studio/merchantOnboarding';
 import type { MerchantOnboardingInput } from '../../src/services/studio/merchantOnboarding';
 
@@ -237,7 +238,8 @@ function validateStep(step: number, data: FormData): Record<string, string> {
 
 export default function StudioOnboarding() {
   const router = useRouter();
-  const { session, isSupabaseMode } = useAuth();
+  const { session, isSupabaseMode, refreshMerchantStatus } = useAuth();
+  const gate = useStudioAuthGate();
   const scrollRef = useRef<ScrollView>(null);
 
   const [step, setStep] = useState(1);
@@ -287,13 +289,16 @@ export default function StudioOnboarding() {
     }
 
     if (!isSupabaseMode) {
-      setDone(true);
-      setTimeout(() => router.replace('/studio/dashboard'), 1200);
+      // Don't fake success — the dashboard and AI orchestrators all require
+      // a real Supabase session. Tell the user what they need to do instead.
+      setSubmitError(
+        'CraveMap Studio requires Supabase to save your restaurant. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env, restart the app, then try again.',
+      );
       return;
     }
 
     if (!session) {
-      setSubmitError('Please sign in before submitting. Tap Back and sign in through the diner flow.');
+      setSubmitError('Please sign in before submitting. Tap Back and sign in.');
       return;
     }
 
@@ -316,6 +321,9 @@ export default function StudioOnboarding() {
 
     try {
       await saveMerchantOnboarding(session.userId, input);
+      // Update AuthContext so subsequent navigation knows this user is a
+      // merchant (drives /studio/dashboard routing from app/index.tsx).
+      await refreshMerchantStatus();
       setDone(true);
       setTimeout(() => router.replace('/studio/dashboard'), 1400);
     } catch (err) {
@@ -324,6 +332,40 @@ export default function StudioOnboarding() {
       setSubmitting(false);
     }
   };
+
+  // ── Auth gate ──────────────────────────────────────────────────────────────
+  // While auth is loading, show a spinner. In mock mode, block with a notice
+  // (the redirect to welcome only fires for unauth'd Supabase mode).
+  if (!gate.ready) {
+    if (gate.blocked && gate.reason === 'mock-mode') {
+      return (
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.successContainer}>
+            <Text style={styles.successEmoji}>🔌</Text>
+            <Text style={styles.successTitle}>Studio needs Supabase</Text>
+            <Text style={styles.successSub}>
+              Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env, then restart the app.
+            </Text>
+            <TouchableOpacity
+              style={[styles.nextBtn, { marginTop: Spacing.lg, paddingHorizontal: Spacing.xl }]}
+              onPress={() => router.replace('/role-select')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="arrow-back" size={18} color="#fff" />
+              <Text style={styles.nextBtnText}>Back to home</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.successContainer}>
+          <ActivityIndicator color={STUDIO_BLUE} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ── Success state ──────────────────────────────────────────────────────────
   if (done) {

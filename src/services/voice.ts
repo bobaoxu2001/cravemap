@@ -1,3 +1,4 @@
+import { aiProxyCredentials } from './aiProxy';
 import { Restaurant } from '../../types';
 
 export interface VoiceIntent {
@@ -12,9 +13,9 @@ export interface VoiceIntent {
 // ─── Transcription ────────────────────────────────────────────────────────────
 
 export async function transcribeAudio(uri: string): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const enabled = process.env.EXPO_PUBLIC_VOICE_AI_ENABLED === 'true';
 
-  if (!apiKey) {
+  if (!enabled) {
     // Demo mode — simulate a network delay then return a canned transcript
     await new Promise((r) => setTimeout(r, 800));
     return '我想吃辣的中国菜';
@@ -28,9 +29,11 @@ export async function transcribeAudio(uri: string): Promise<string> {
   } as unknown as Blob);
   formData.append('model', 'whisper-1');
 
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+  const proxy = await aiProxyCredentials();
+  const res = await fetch(proxy.url, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: proxy.headers,
+    signal: AbortSignal.timeout(45_000),
     body: formData,
   });
 

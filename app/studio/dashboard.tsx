@@ -6,10 +6,12 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
+import { useStudioAuthGate } from '../../src/hooks/useStudioAuthGate';
 
 const STUDIO_BLUE = '#3A3AFF';
 
@@ -36,12 +38,64 @@ const MODULES: ModuleItem[] = [
     ready: true,
     href: '/studio/campaign',
   },
+  {
+    icon: '💰',
+    title: 'Starter Pack — $49',
+    status: 'AI growth pack for your restaurant',
+    ready: true,
+    href: '/studio/upgrade',
+  },
+  {
+    icon: '📊',
+    title: 'Revenue Dashboard',
+    status: 'Payments + totals',
+    ready: true,
+    href: '/studio/revenue',
+  },
+  {
+    icon: '📋',
+    title: 'Evidence Dashboard',
+    status: 'AI activity proof for judges',
+    ready: true,
+    href: '/studio/evidence',
+  },
   { icon: '📈', title: 'Review Intelligence', status: 'Ready after analysis', ready: false },
-  { icon: '🤖', title: 'Agent Logs', status: 'No runs yet', ready: false },
 ];
 
 export default function StudioDashboard() {
   const router = useRouter();
+  const gate = useStudioAuthGate();
+
+  if (!gate.ready) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.blob1} />
+        <View style={styles.blob2} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl }}>
+          {gate.blocked && gate.reason === 'mock-mode' ? (
+            <>
+              <Text style={{ fontSize: 48, marginBottom: Spacing.md }}>🔌</Text>
+              <Text style={{ ...Typography.h2, color: '#FFFFFF', fontWeight: '800', textAlign: 'center', marginBottom: Spacing.sm }}>
+                Studio needs Supabase
+              </Text>
+              <Text style={{ ...Typography.body, color: '#A0A0C8', textAlign: 'center', lineHeight: 22 }}>
+                Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env, then restart the app.
+              </Text>
+              <TouchableOpacity
+                style={{ marginTop: Spacing.lg, backgroundColor: STUDIO_BLUE, borderRadius: BorderRadius.xl, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg }}
+                onPress={() => router.replace('/role-select')}
+                activeOpacity={0.85}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Back to home</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <ActivityIndicator color={STUDIO_BLUE} size="large" />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>

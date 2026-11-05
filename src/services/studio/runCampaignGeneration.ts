@@ -45,7 +45,7 @@ function requireClient() {
 }
 
 function hasGeminiKey(): boolean {
-  return Boolean(process.env.EXPO_PUBLIC_GEMINI_API_KEY);
+  return process.env.EXPO_PUBLIC_STUDIO_AI_ENABLED === 'true';
 }
 
 async function getLatestAnalysisForMerchant(
@@ -229,6 +229,7 @@ export async function runCampaignGeneration(userId: string): Promise<StoredCampa
     provider,
     latencyMs,
     analysisId: latestAnalysis.id,
+    output: campaignData,
   });
 
   return {
@@ -251,6 +252,8 @@ interface LogPayload {
   provider: string;
   latencyMs: number;
   analysisId: string;
+  /** Full campaign output for success logs; null/undefined for failures. */
+  output?: CampaignOutput | null;
 }
 
 async function logAgentRun(
@@ -263,7 +266,7 @@ async function logAgentRun(
     agent_name: 'campaign-generator',
     action_type: 'generate_campaign',
     input_snapshot: { menu_analysis_id: payload.analysisId },
-    output_snapshot: {},
+    output_snapshot: (payload.output ?? {}) as Record<string, unknown>,
     model_used: payload.modelUsed,
     provider: payload.provider,
     status: payload.status,

@@ -5,7 +5,7 @@
 // campaign. Output maps directly to the ai_campaigns table columns.
 // ============================================================================
 
-import { callGeminiStructured, GeminiResult } from './gemini';
+import { assertGeminiShape, callGeminiStructured, GeminiResult } from './gemini';
 import type { MenuAnalysisOutput } from './menuAnalysis';
 
 // ── Input ─────────────────────────────────────────────────────────────────────
@@ -259,6 +259,19 @@ Local and genuine voice. No corporate-speak. Write like a food-obsessed local wo
     responseSchema: CAMPAIGN_SCHEMA,
     temperature: 0.7,
   });
+
+  assertGeminiShape(
+    result.data,
+    {
+      campaign_title: { type: 'string' },
+      campaign_goal: { type: 'string' },
+      content_calendar: { type: 'array' },
+      short_video_scripts: { type: 'array' },
+      instagram_captions: { type: 'array' },
+      recommendation_cards: { type: 'array' },
+    },
+    'Campaign',
+  );
 
   return { ...result, data: normalizeCampaignOutput(result.data) };
 }
